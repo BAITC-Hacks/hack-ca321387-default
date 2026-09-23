@@ -65,6 +65,47 @@ class MatchFeatureTests(unittest.TestCase):
         self.addCleanup(environment.stop)
 
 
+    def test_hard_filters_and_funnel_use_same_facts_even_with_maximum_text_scores(self) -> None:
+        records = (
+            profile('category', categories=['Фотограф']), profile('city', city='Астана'),
+            profile('busy', busy_dates=['2026-11-18']), profile('format', formats=['свадьба']),
+            profile('budget', price=2_000_000), profile('language', languages=['казахский']),
+            profile('duration', max_hours=4), profile('eligible'),
+        )
+        provider = CountingSemantic({item.id: (1.0, 1.0) for item in records})
+        result = MatchingService(catalog(*records), provider).details(request())
+        self.assertEqual([card.id for card in result.match.results], ['eligible'])
+        self.assertEqual([item.stage for item in result.funnel], [stage for stage, _ in STAGES])
+        self.assertEqual([item.after for item in result.funnel], [7, 6, 5, 4, 3, 2, 1])
+        for index, step in enumerate(result.funnel):
+            self.assertEqual(step.before, 8 - index)
+            self.assertEqual(step.excluded, step.before - step.after)
+            self.assertEqual(step.count, step.after)
+            self.assertEqual(step.application, 'applied')
+            if index:
+                self.assertEqual(step.before, result.funnel[index - 1].after)
+        for stage, _ in STAGES:
+            self.assertTrue(getattr(result.match.results[0].evidence, stage).matched)
+
+    def test_absent_optional_conditions_are_explicit_and_never_invent_contributions(self) -> None:
+        result = MatchingService(catalog(profile('one'))).details(request(language=None, duration=None))
+        for step in result.funnel:
+            self.assertEqual(step.application, 'not_requested' if step.stage in ('language', 'duration') else 'applied')
+            if step.application == 'not_requested':
+                self.assertEqual(step.before, step.after)
+                self.assertEqual(step.excluded, 0)
+        components = {item.component: item for item in result.ranking[0].components}
+        self.assertEqual(components['duration'].state, 'not_requested')
+        for key in ('duration', 'semantic', 'lexical'):
+            self.assertIsNone(components[key].value)
+            self.assertIsNone(components[key].weight)
+            self.assertIsNone(components[key].contribution)
+        self.assertEqual(components['semantic'].state, 'unavailable')
+        self.assertEqual(components['budget'].weight, 1)
+        self.assertIsNone(result.match.results[0].evidence.language.matched)
+        self.assertIsNone(result.match.results[0].evidence.duration.matched)
+
+
     def test_score_contributions_preserve_raw_inputs_at_rounding_boundaries(self) -> None:
         # The rounded public component can produce a different final rounding.
         # Details must retain actual inputs without altering the legacy score.

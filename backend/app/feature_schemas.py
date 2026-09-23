@@ -32,7 +32,13 @@ class RankingDetail(Schema):
     rounding: Literal['python_round_6_decimal_places'] = 'python_round_6_decimal_places'
 
 
+class FunnelStepDetail(DiagnosticStep):
+    application: Literal['applied', 'not_requested']
+    reason: str
+
+
 class DetailedMatchResponse(Schema):
     query: SearchParams
     match: MatchResponse
     ranking: list[RankingDetail] = Field(max_length=3)
+    funnel: list[FunnelStepDetail]

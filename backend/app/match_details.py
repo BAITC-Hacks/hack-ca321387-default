@@ -1,7 +1,7 @@
 """Present facts captured by the matcher; never rerun selection or model inference."""
 from dataclasses import dataclass
 
-from .feature_schemas import ComponentName, DetailedMatchResponse, RankingDetail, ScoreComponentDetail
+from .feature_schemas import ComponentName, DetailedMatchResponse, FunnelStepDetail, RankingDetail, ScoreComponentDetail
 from .schemas import Contractor, MatchResponse, ScoreBreakdown, SearchParams
 
 COMPONENTS: tuple[ComponentName, ...] = ('semantic', 'lexical', 'budget', 'duration')
@@ -46,4 +46,10 @@ def ranking_detail(card: Contractor, calculation: ScoreCalculation, position: in
 def build_details(query: SearchParams, response: MatchResponse,
                   calculations: dict[str, ScoreCalculation]) -> DetailedMatchResponse:
     ranking = [ranking_detail(card, calculations[card.id], index + 1) for index, card in enumerate(response.results)]
-    return DetailedMatchResponse(query=query, match=response, ranking=ranking)
+    funnel = []
+    for step in response.diagnostics.steps:
+        skipped = (step.stage == 'language' and query.language is None) or (step.stage == 'duration' and query.duration is None)
+        funnel.append(FunnelStepDetail(**step.model_dump(), application='not_requested' if skipped else 'applied',
+                                       reason='Условие отсутствует в запросе; кандидаты не исключались.' if skipped else
+                                       'Применён общий предикат отбора; неприменимые для услуги значения не подтверждают совпадение.'))
+    return DetailedMatchResponse(query=query, match=response, ranking=ranking, funnel=funnel)
