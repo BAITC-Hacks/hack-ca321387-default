@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException
 
 from .catalog import Catalog, CatalogError, DEFAULT_DATASET, UnknownOption, load_catalog
 from .matching import MatchingService
+from .feature_schemas import DetailedMatchResponse
 from .schemas import ErrorResponse, FieldError, MatchResponse, Metadata, SearchParams
 from .semantic import HttpSemanticProvider, SemanticProvider
 
@@ -104,6 +105,10 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
     def match(query: SearchParams) -> MatchResponse:
         # Sync handler runs in FastAPI's thread pool, including the bounded AI call.
         return service().match(query)
+
+    @app.post('/api/match/details', response_model=DetailedMatchResponse, responses=errors)
+    def match_details(query: SearchParams) -> DetailedMatchResponse:
+        return service().details(query)
 
     return app
 

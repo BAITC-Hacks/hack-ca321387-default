@@ -1,8 +1,11 @@
 """Application use case and deterministic scoring; no HTTP or provider-specific rules."""
 from datetime import timedelta
+from dataclasses import dataclass
 from typing import Literal
 
 from .catalog import Catalog
+from .feature_schemas import DetailedMatchResponse
+from .match_details import ScoreCalculation, build_details
 from .rules import CheckedProfile, filter_profiles
 from .schemas import (
     MAX_BUDGET, MAX_DATE, MIN_DATE, AvailabilityDay, BudgetAlternative, Contractor,
@@ -17,7 +20,7 @@ WITH_DURATION = {'semantic': .50, 'lexical': .20, 'budget': .20, 'duration': .10
 WITHOUT_DURATION = {'semantic': .60, 'lexical': .20, 'budget': .20, 'duration': 0.0}
 
 
-def rank_card(checked: CheckedProfile, query: SearchParams, text: TextScore | None) -> Contractor:
+def _rank_card(checked: CheckedProfile, query: SearchParams, text: TextScore | None) -> tuple[Contractor, ScoreCalculation]:
     profile = checked.profile
     assert profile.price is not None  # A mandatory check already succeeded.
     duration = None
@@ -44,7 +47,7 @@ def rank_card(checked: CheckedProfile, query: SearchParams, text: TextScore | No
     # Verbatim excerpt is attributed; never invent a style from a keyword hit.
     excerpt = profile.description[:180].rstrip()
     explanation = facts + '.' + (f' В описании профиля: «{excerpt}{"…" if len(profile.description) > 180 else ""}».' if excerpt else '')
-    return Contractor(
+    card = Contractor(
         id=profile.id, name=profile.name, categories=list(profile.categories), city=profile.city,
         price=profile.price, score=round(score, 6), semantic_score=None if semantic is None else round(semantic, 6),
         synthetic=profile.synthetic, city_imputed=profile.city_imputed, price_imputed=profile.price_imputed,
@@ -54,6 +57,20 @@ def rank_card(checked: CheckedProfile, query: SearchParams, text: TextScore | No
         languages=list(profile.languages), description=profile.description,
     )
 
+    return card, ScoreCalculation(components, ScoreBreakdown.model_validate(weights), score)
+
+
+def rank_card(checked: CheckedProfile, query: SearchParams, text: TextScore | None) -> Contractor:
+    """Keep the existing public helper; all consumers share the same calculation."""
+    return _rank_card(checked, query, text)[0]
+
+
+@dataclass(frozen=True)
+class MatchExecution:
+    query: SearchParams
+    response: MatchResponse
+    calculations: dict[str, ScoreCalculation]
+
 
 class MatchingService:
     def __init__(self, catalog: Catalog, semantic: SemanticProvider | None = None):
@@ -61,6 +78,13 @@ class MatchingService:
         self.semantic = semantic
 
     def match(self, request: SearchParams) -> MatchResponse:
+        return self._execute(request).response
+
+    def details(self, request: SearchParams) -> DetailedMatchResponse:
+        execution = self._execute(request)
+        return build_details(execution.query, execution.response, execution.calculations)
+
+    def _execute(self, request: SearchParams) -> MatchExecution:
         query = self.catalog.canonical_query(request)
         pool, steps = filter_profiles(self.catalog.profiles, query)
         counts = {step.stage: step.after for step in steps}
@@ -103,10 +127,13 @@ class MatchingService:
                 model.semantic_model = 'unavailable'
                 model.fallback_used = True
         model.ranking_version += ':' + model.semantic_model
-        ranked = [rank_card(item, query, text_scores.get(item.profile.id)) for item in pool]
-        ranked.sort(key=lambda item: (-item.score, item.price, item.id))
-        return MatchResponse(
+        scored = [_rank_card(item, query, text_scores.get(item.profile.id)) for item in pool]
+        scored.sort(key=lambda item: (-item[0].score, item[0].price, item[0].id))
+        ranked = [item[0] for item in scored]
+        calculations = {item[0].id: item[1] for item in scored[:3]}
+        response = MatchResponse(
             status=status, results=ranked[:3], total_eligible=len(pool), availability=availability, model_info=model,
             diagnostics=Diagnostics(steps=steps, counts=counts, primary_blocker=blocker, summary=summary,
                                     budget_alternative=alternative),
         )
+        return MatchExecution(query, response, calculations)
