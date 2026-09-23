@@ -16,6 +16,18 @@ class FakeGenerator:
 
 
 class LocalExplainerTests(unittest.TestCase):
+    def test_extract_forwards_text_and_options(self) -> None:
+        class ExtractGenerator(FakeGenerator):
+            def generate_extract(self, text: str, options: dict[str, list[str]]) -> str:
+                self.calls.append([text, *options['city']])
+                return '{"city":{"value":null,"quote":null}}'
+
+        generator = ExtractGenerator()
+        with TestClient(create_app(generator)) as client:
+            response = client.post('/extract', json={'text': 'В Алматы', 'options': {'city': ['Алматы']}})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(generator.calls, [['В Алматы', 'Алматы']])
+
     def test_chat_uses_supplied_turns(self) -> None:
         class ChatGenerator(FakeGenerator):
             def generate_chat(self, messages: list[dict[str, str]], context: dict[str, str]) -> str:

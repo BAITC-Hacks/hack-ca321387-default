@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException
 
 from .catalog import Catalog, CatalogError, DEFAULT_DATASET, UnknownOption, load_catalog
 from .chat import ChatRequest, ChatResponse, ChatService, ChatUnavailable
+from .request_extraction import ExtractionRequest, ExtractionResponse, ExtractionService, ExtractionUnavailable
 from .explanations import (
     ExplanationProvider, FallbackExplanationProvider, LocalExplanationProvider,
     OpenAIExplanationProvider,
@@ -64,6 +65,12 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
                 explanation_provider = openai_provider
             application.state.matching = MatchingService(snapshot, provider, explanation_provider)
             application.state.chat = ChatService(
+                key, os.getenv('OPENAI_MODEL', 'gpt-4.1-mini'),
+                float(os.getenv('OPENAI_CHAT_TIMEOUT_SECONDS', '12')),
+                os.getenv('LOCAL_EXPLANATION_URL', 'http://localhost:8200'),
+                float(os.getenv('LOCAL_CHAT_TIMEOUT_SECONDS', '60')),
+            )
+            application.state.extraction = ExtractionService(
                 key, os.getenv('OPENAI_MODEL', 'gpt-4.1-mini'),
                 float(os.getenv('OPENAI_CHAT_TIMEOUT_SECONDS', '12')),
                 os.getenv('LOCAL_EXPLANATION_URL', 'http://localhost:8200'),
@@ -156,6 +163,13 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
             return cast(ChatService, app.state.chat).reply(query)
         except ChatUnavailable:
             return error(503, 'chat_unavailable', 'AI-ассистент сейчас недоступен. Проверьте OpenAI API key или запустите локальную модель.')
+
+    @app.post('/api/search/extract', response_model=ExtractionResponse, responses=errors)
+    def extract_search(request: ExtractionRequest) -> ExtractionResponse | JSONResponse:
+        try:
+            return cast(ExtractionService, app.state.extraction).extract(request.text, service().catalog)
+        except ExtractionUnavailable:
+            return error(503, 'extraction_unavailable', 'Не удалось разобрать запрос. Проверьте AI-сервис или заполните форму вручную.')
 
     @app.post('/api/match/details', response_model=DetailedMatchResponse, responses=errors)
     def match_details(query: SearchParams) -> DetailedMatchResponse:

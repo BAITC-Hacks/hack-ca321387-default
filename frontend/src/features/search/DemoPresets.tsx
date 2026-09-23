@@ -8,16 +8,16 @@ export function DemoPresets({ onSelect, pending }: { onSelect: (query: SearchPar
 
   return <section className="demo-presets" aria-labelledby="demo-presets-title">
     <div className="demo-presets-heading">
-      <div><p className="eyebrow">Готовые сценарии</p><h2 id="demo-presets-title">Попробуйте поиск на примере</h2></div>
-      <p>Сценарии рассчитаны backend по текущему каталогу.</p>
+      <h2 id="demo-presets-title">Готовые сценарии</h2>
+      <span>Примеры из текущего каталога</span>
     </div>
-    {presets.isError ? <div className="demo-presets-error" role="alert">Не удалось загрузить сценарии. <button type="button" onClick={() => void presets.refetch()}>Повторить</button></div>
+    {presets.isError ? <p className="demo-presets-error" role="alert">Не удалось загрузить сценарии. <button type="button" onClick={() => void presets.refetch()}>Повторить</button></p>
       : <div className="demo-presets-list">
-        {presets.data.presets.map((preset) => <div className="demo-preset" key={preset.id}>
-          <strong>{preset.title}</strong><p>{preset.description}</p>
-          <span>{preset.eligible_count} подходящих в каталоге</span>
-          <div><button type="button" className="secondary-button" disabled={pending} onClick={() => onSelect(preset.query)}>Показать результат</button>
-            {preset.related_query && <button type="button" className="secondary-button" disabled={pending} onClick={() => onSelect(preset.related_query!)}>Сравнить условие</button>}</div>
+        {presets.data.presets.map((preset) => <div className="demo-preset" key={preset.id} title={preset.description}>
+          <button type="button" className="preset-main" disabled={pending} onClick={() => onSelect(preset.query)}>
+            <strong>{preset.title}</strong><span>{preset.eligible_count} подходящих</span>
+          </button>
+          {preset.related_query && <button type="button" className="preset-compare" disabled={pending} onClick={() => onSelect(preset.related_query!)}>Сравнить</button>}
         </div>)}
       </div>}
   </section>
