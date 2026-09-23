@@ -37,8 +37,32 @@ class FunnelStepDetail(DiagnosticStep):
     reason: str
 
 
+class ComparisonDecision(Schema):
+    higher_id: str
+    lower_id: str
+    decided_by: Literal['score', 'price', 'id']
+    score_gap: float = Field(ge=0)
+    contribution_deltas: dict[ComponentName, float | None]
+    reason: str
+
+
+class ComparisonContext(Schema):
+    # Characteristics and hard-check evidence are reused from match.results, by ID.
+    candidate_ids: list[str] = Field(max_length=3)
+    currency: Literal['KZT'] = 'KZT'
+    price_unit: Literal['event'] = 'event'
+    price_basis: Literal['starting_price'] = 'starting_price'
+    price_note: str = 'Сравниваются стартовые цены за мероприятие; состав пакета и окончательная смета неизвестны.'
+    duration_unit: Literal['hours'] = 'hours'
+    duration_note: str = 'Сравнивать только известные лимиты присутствия; not_applicable не означает 0 или бесконечность.'
+    formats: dict[str, list[str]]
+    ordering: list[Literal['score_desc', 'price_asc', 'id_asc']]
+    decisions: list[ComparisonDecision]
+
+
 class DetailedMatchResponse(Schema):
     query: SearchParams
     match: MatchResponse
     ranking: list[RankingDetail] = Field(max_length=3)
     funnel: list[FunnelStepDetail]
+    comparison: ComparisonContext

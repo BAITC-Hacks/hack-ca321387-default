@@ -65,6 +65,18 @@ class MatchFeatureTests(unittest.TestCase):
         self.addCleanup(environment.stop)
 
 
+    def test_details_preserve_category_not_found_and_empty_comparison(self) -> None:
+        service = MatchingService(catalog(profile('host', city='Астана'),
+                                          profile('photo', categories=['Фотограф'])))
+        result = service.details(request())
+        self.assertEqual(result.match, service.match(request()))
+        self.assertEqual(result.match.status, 'category_not_found')
+        self.assertEqual(result.ranking, [])
+        self.assertEqual(result.comparison.candidate_ids, [])
+        self.assertEqual(result.comparison.decisions, [])
+        self.assertEqual(result.comparison.formats, {})
+
+
     def test_hard_filters_and_funnel_use_same_facts_even_with_maximum_text_scores(self) -> None:
         records = (
             profile('category', categories=['Фотограф']), profile('city', city='Астана'),
@@ -74,7 +86,7 @@ class MatchFeatureTests(unittest.TestCase):
         )
         provider = CountingSemantic({item.id: (1.0, 1.0) for item in records})
         result = MatchingService(catalog(*records), provider).details(request())
-        self.assertEqual([card.id for card in result.match.results], ['eligible'])
+        self.assertEqual(result.comparison.candidate_ids, ['eligible'])
         self.assertEqual([item.stage for item in result.funnel], [stage for stage, _ in STAGES])
         self.assertEqual([item.after for item in result.funnel], [7, 6, 5, 4, 3, 2, 1])
         for index, step in enumerate(result.funnel):
@@ -133,6 +145,32 @@ class MatchFeatureTests(unittest.TestCase):
                     self.assertIsNotNone(card.score_weights.semantic)
                     naive = (card.score_breakdown.semantic or 0) * (card.score_weights.semantic or 0)
                     self.assertNotEqual(round(naive, 6), card.score)
+
+
+    def test_comparison_explains_score_price_then_identifier_without_inventing_factors(self) -> None:
+        # Without duration, these signals compensate differing budget components.
+        records = (profile('B', price=400_000), profile('A', price=400_000),
+                   profile('C', price=500_000))
+        provider = CountingSemantic({'A': (.4, 0), 'B': (.4, 0), 'C': (.4333333333333333, 0)})
+        result = MatchingService(catalog(*records), provider).details(request(duration=None))
+        self.assertEqual([card.score for card in result.match.results], [.36, .36, .36])
+        self.assertEqual(result.comparison.candidate_ids, ['A', 'B', 'C'])
+        decisions = {(item.higher_id, item.lower_id): item for item in result.comparison.decisions}
+        self.assertEqual(decisions[('A', 'B')].decided_by, 'id')
+        self.assertEqual(decisions[('A', 'C')].decided_by, 'price')
+        self.assertEqual(decisions[('B', 'C')].decided_by, 'price')
+        self.assertTrue(all(item.score_gap == 0 for item in decisions.values()))
+        self.assertIsNone(decisions[('A', 'C')].contribution_deltas['duration'])
+        self.assertEqual(result.comparison.ordering, ['score_desc', 'price_asc', 'id_asc'])
+        self.assertEqual(result.comparison.currency, 'KZT')
+        self.assertEqual(result.comparison.price_unit, 'event')
+        self.assertEqual(result.comparison.price_basis, 'starting_price')
+        self.assertEqual(result.comparison.duration_unit, 'hours')
+        self.assertEqual(result.comparison.formats, {item.id: ['корпоратив'] for item in records})
+        ranked = MatchingService(catalog(profile('cheap', price=300_000),
+                                         profile('costly', price=700_000))).details(request())
+        self.assertEqual(ranked.comparison.decisions[0].decided_by, 'score')
+        self.assertGreater(ranked.comparison.decisions[0].score_gap, 0)
 
 
     def test_details_http_contract_and_validation_keep_ordinary_search_compatible(self) -> None:
