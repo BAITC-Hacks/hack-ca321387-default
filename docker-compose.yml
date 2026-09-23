@@ -5,6 +5,12 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       AI_SERVICE_URL: http://ai-service:8100
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-8}
+      EXPLANATION_MODE: ${EXPLANATION_MODE:-auto}
+      LOCAL_EXPLANATION_URL: http://local-explainer:8200
+      LOCAL_EXPLANATION_TIMEOUT_SECONDS: ${LOCAL_EXPLANATION_TIMEOUT_SECONDS:-30}
     ports:
       - "8000:8000"
     healthcheck:
@@ -26,6 +32,24 @@ services:
       retries: 5
       start_period: 5s
 
+  local-explainer:
+    profiles: [local-llm]
+    build:
+      context: ./services/ai
+      dockerfile: Dockerfile.local
+    environment:
+      LOCAL_HF_MODEL: ${LOCAL_HF_MODEL:-Qwen/Qwen2.5-0.5B-Instruct}
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+    ports:
+      - "8200:8200"
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8200/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
   frontend:
     build:
       context: ./frontend
@@ -37,3 +61,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  huggingface-cache:

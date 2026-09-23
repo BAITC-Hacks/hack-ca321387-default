@@ -41,6 +41,27 @@ Server env (see `.env.example`): optional `DATASET_PATH`, `AI_SERVICE_URL`
 Uvicorn can read the root file explicitly with `--env-file .env`.
 No server environment file or secrets are imported into the frontend.
 
+To have OpenAI write the card's "Почему этот подрядчик подходит" text, copy
+`.env.example` to an ignored root `.env` and set `OPENAI_API_KEY` there. Docker
+Compose passes it only to the backend. For local Uvicorn, add `--env-file .env`.
+`OPENAI_MODEL` defaults to `gpt-4.1-mini`; `OPENAI_TIMEOUT_SECONDS` defaults to 8.
+The backend sends only verified evidence for the already-ranked TOP-3 in one
+Responses API request. If the key is absent or the request fails, it keeps the
+existing evidence-based text. Ranking, scores and candidate eligibility never
+depend on OpenAI. API access requires a separate OpenAI Platform key; a ChatGPT
+subscription alone does not configure the backend.
+
+For a local, keyless explanation model, set `EXPLANATION_MODE=local` in the root
+`.env` and start `docker compose --profile local-llm up --build`. This starts a
+separate Hugging Face Qwen2.5-0.5B-Instruct service on port 8200. The optional
+image installs CPU-only PyTorch and downloads model weights on first startup;
+the named volume keeps the download for later runs. Wait until
+`http://localhost:8200/health` responds before searching. Local generation on
+CPU may be slower and less reliable than OpenAI. If it fails, the backend tries
+OpenAI when a key is configured, then the deterministic text. To use only
+OpenAI, set `EXPLANATION_MODE=openai`; `template` disables model wording.
+Ordinary `docker compose up --build` does not build or start the local model.
+
 Frontend env (`frontend/.env.example`): `VITE_API_URL=/api`,
 `VITE_USE_MOCK_API=false`. Production refuses mock mode. Optional dev mock mode
 uses a finite set of recorded backend responses, documented in the architecture;
