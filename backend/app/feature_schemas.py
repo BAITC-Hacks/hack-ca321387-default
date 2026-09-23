@@ -66,3 +66,34 @@ class DetailedMatchResponse(Schema):
     ranking: list[RankingDetail] = Field(max_length=3)
     funnel: list[FunnelStepDetail]
     comparison: ComparisonContext
+
+
+class StageTiming(Schema):
+    stage: str
+    elapsed_ms: float = Field(ge=0, allow_inf_nan=False)
+    before: int | None = Field(default=None, ge=0)
+    after: int | None = Field(default=None, ge=0)
+
+
+class TraceNotice(Schema):
+    code: str
+    message: str
+    candidate_id: str | None = None
+
+
+class MatchTrace(Schema):
+    request_id: str
+    normalized_query: SearchParams
+    catalog_count: int = Field(ge=0)
+    total_eligible: int = Field(ge=0)
+    returned_count: int = Field(ge=0, le=3)
+    model_info: ModelInfo
+    stages: list[StageTiming]
+    total_ms: float = Field(ge=0, allow_inf_nan=False)
+    timing_scope: Literal['pipeline_and_details_excludes_http_serialization'] = 'pipeline_and_details_excludes_http_serialization'
+    notices: list[TraceNotice]
+
+
+class DebugMatchResponse(Schema):
+    details: DetailedMatchResponse
+    trace: MatchTrace

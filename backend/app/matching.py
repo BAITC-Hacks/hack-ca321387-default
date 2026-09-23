@@ -1,11 +1,14 @@
 """Application use case and deterministic scoring; no HTTP or provider-specific rules."""
 from datetime import timedelta
 from dataclasses import dataclass
+from time import perf_counter_ns
+from uuid import uuid4
 from typing import Literal
 
 from .catalog import Catalog
-from .feature_schemas import DetailedMatchResponse
+from .feature_schemas import DebugMatchResponse, DetailedMatchResponse, MatchTrace, TraceNotice
 from .match_details import ScoreCalculation, build_details
+from .trace import TraceRecorder, measured
 from .rules import CheckedProfile, filter_profiles
 from .schemas import (
     MAX_BUDGET, MAX_DATE, MIN_DATE, AvailabilityDay, BudgetAlternative, Contractor,
@@ -84,56 +87,89 @@ class MatchingService:
         execution = self._execute(request)
         return build_details(execution.query, execution.response, execution.calculations)
 
-    def _execute(self, request: SearchParams) -> MatchExecution:
-        query = self.catalog.canonical_query(request)
-        pool, steps = filter_profiles(self.catalog.profiles, query)
-        counts = {step.stage: step.after for step in steps}
-        status: Literal['matched', 'category_not_found', 'no_match'] = 'category_not_found' if counts['city'] == 0 else 'matched' if pool else 'no_match'
-        blocker = next((step.stage for step in steps if step.before > 0 and step.after == 0), None)
-        if status == 'category_not_found':
-            summary = f'В городе {query.city} нет подрядчиков известной категории «{query.category}».'
-        elif status == 'no_match':
-            label = next(step.label for step in steps if step.stage == blocker)
-            summary = (f'Первый нулевой этап: «{label}». Это результат порядка проверок; '
-                       'изменение только этого условия не гарантирует совпадение без повторной проверки остальных.')
-        elif len(pool) < 3:
-            summary = f'Подходящих кандидатов {len(pool)}; остальные не прошли обязательные условия.'
-        else:
-            summary = f'Подходящих кандидатов {len(pool)}; показаны первые три по оценке соответствия.'
+    def debug_match(self, request: SearchParams) -> DebugMatchResponse:
+        started = perf_counter_ns()
+        request_id = str(uuid4())
+        recorder = TraceRecorder()
+        execution = self._execute(request, recorder)
+        with measured(recorder, 'details.assemble'):
+            details = build_details(execution.query, execution.response, execution.calculations)
+        response = execution.response
+        return DebugMatchResponse(details=details, trace=MatchTrace(
+            request_id=request_id, normalized_query=execution.query,
+            catalog_count=len(self.catalog.profiles), total_eligible=response.total_eligible,
+            returned_count=len(response.results), model_info=response.model_info,
+            stages=recorder.stages, total_ms=(perf_counter_ns() - started) / 1_000_000,
+            notices=recorder.notices,
+        ))
+
+    def _execute(self, request: SearchParams, recorder: TraceRecorder | None = None) -> MatchExecution:
+        with measured(recorder, 'query.normalize'):
+            query = self.catalog.canonical_query(request)
+        pool, steps = filter_profiles(self.catalog.profiles, query, recorder.record if recorder else None)
+        with measured(recorder, 'diagnostics.summarize'):
+            counts = {step.stage: step.after for step in steps}
+            status: Literal['matched', 'category_not_found', 'no_match'] = 'category_not_found' if counts['city'] == 0 else 'matched' if pool else 'no_match'
+            blocker = next((step.stage for step in steps if step.before > 0 and step.after == 0), None)
+            if status == 'category_not_found':
+                summary = f'В городе {query.city} нет подрядчиков известной категории «{query.category}».'
+            elif status == 'no_match':
+                label = next(step.label for step in steps if step.stage == blocker)
+                summary = (f'Первый нулевой этап: «{label}». Это результат порядка проверок; '
+                           'изменение только этого условия не гарантирует совпадение без повторной проверки остальных.')
+            elif len(pool) < 3:
+                summary = f'Подходящих кандидатов {len(pool)}; остальные не прошли обязательные условия.'
+            else:
+                summary = f'Подходящих кандидатов {len(pool)}; показаны первые три по оценке соответствия.'
         alternative = None
         if status == 'no_match':
-            relaxed = query.model_copy(update={'budget': float(MAX_BUDGET)})
-            affordable_pool, _ = filter_profiles(self.catalog.profiles, relaxed)
-            prices = [item.profile.price for item in affordable_pool if item.profile.price is not None]
-            if prices:
-                threshold = min(prices)
-                if threshold > query.budget:
-                    verified, _ = filter_profiles(self.catalog.profiles, query.model_copy(update={'budget': threshold}))
-                    alternative = BudgetAlternative(budget=threshold, available=len(verified))
-        availability = []
-        for offset in (-2, -1, 0, 1, 2):
-            day = query.date + timedelta(days=offset)
-            if MIN_DATE <= day <= MAX_DATE:
-                eligible, _ = filter_profiles(self.catalog.profiles, query.model_copy(update={'date': day}))
-                availability.append(AvailabilityDay(date=day, available=len(eligible)))
+            with measured(recorder, 'alternatives.budget'):
+                relaxed = query.model_copy(update={'budget': float(MAX_BUDGET)})
+                affordable_pool, _ = filter_profiles(self.catalog.profiles, relaxed)
+                prices = [item.profile.price for item in affordable_pool if item.profile.price is not None]
+                if prices:
+                    threshold = min(prices)
+                    if threshold > query.budget:
+                        verified, _ = filter_profiles(self.catalog.profiles, query.model_copy(update={'budget': threshold}))
+                        alternative = BudgetAlternative(budget=threshold, available=len(verified))
+        with measured(recorder, 'alternatives.dates'):
+            availability = []
+            for offset in (-2, -1, 0, 1, 2):
+                day = query.date + timedelta(days=offset)
+                if MIN_DATE <= day <= MAX_DATE:
+                    eligible, _ = filter_profiles(self.catalog.profiles, query.model_copy(update={'date': day}))
+                    availability.append(AvailabilityDay(date=day, available=len(eligible)))
         model = ModelInfo(ranking_version=RANKING_VERSION, data_version=self.catalog.version,
                           semantic_model='not_used' if not pool else 'disabled', fallback_used=False)
         text_scores: dict[str, TextScore] = {}
         if pool and self.semantic is not None:
-            try:
-                text_scores = self.semantic.score(query, self.catalog)
-                model.semantic_model = 'tfidf-v1'
-            except SemanticUnavailable:
-                model.semantic_model = 'unavailable'
-                model.fallback_used = True
+            with measured(recorder, 'ranking.semantic'):
+                try:
+                    text_scores = self.semantic.score(query, self.catalog)
+                    model.semantic_model = 'tfidf-v1'
+                except SemanticUnavailable as exc:
+                    model.semantic_model = 'unavailable'
+                    model.fallback_used = True
+                    if recorder:
+                        recorder.notices.append(TraceNotice(code=exc.code, message='Текстовый сервис недоступен; применён существующий режим без текстовых компонентов.'))
+        elif recorder:
+            recorder.notices.append(TraceNotice(code='semantic_not_used' if not pool else 'semantic_disabled',
+                                               message='Нет кандидатов для ранжирования.' if not pool else 'Текстовая оценка отключена конфигурацией.'))
         model.ranking_version += ':' + model.semantic_model
-        scored = [_rank_card(item, query, text_scores.get(item.profile.id)) for item in pool]
-        scored.sort(key=lambda item: (-item[0].score, item[0].price, item[0].id))
-        ranked = [item[0] for item in scored]
-        calculations = {item[0].id: item[1] for item in scored[:3]}
-        response = MatchResponse(
-            status=status, results=ranked[:3], total_eligible=len(pool), availability=availability, model_info=model,
-            diagnostics=Diagnostics(steps=steps, counts=counts, primary_blocker=blocker, summary=summary,
-                                    budget_alternative=alternative),
-        )
+        with measured(recorder, 'ranking.score_and_sort'):
+            scored = [_rank_card(item, query, text_scores.get(item.profile.id)) for item in pool]
+            scored.sort(key=lambda item: (-item[0].score, item[0].price, item[0].id))
+            ranked = [item[0] for item in scored]
+            calculations = {item[0].id: item[1] for item in scored[:3]}
+            if recorder and model.semantic_model == 'tfidf-v1':
+                for card, calculation in scored:
+                    if calculation.values.semantic is None or calculation.values.lexical is None:
+                        recorder.notices.append(TraceNotice(code='text_score_missing', candidate_id=card.id,
+                                                           message='Текстовый сервис не предоставил один или оба компонента; отсутствующие значения исключены из score.'))
+        with measured(recorder, 'response.assemble'):
+            response = MatchResponse(
+                status=status, results=ranked[:3], total_eligible=len(pool), availability=availability, model_info=model,
+                diagnostics=Diagnostics(steps=steps, counts=counts, primary_blocker=blocker, summary=summary,
+                                        budget_alternative=alternative),
+            )
         return MatchExecution(query, response, calculations)

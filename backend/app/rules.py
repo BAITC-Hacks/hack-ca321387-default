@@ -1,5 +1,7 @@
 """One implementation of each constraint, shared by selection, evidence and diagnostics."""
 from dataclasses import dataclass
+from collections.abc import Callable
+from time import perf_counter_ns
 
 from .catalog import Profile
 from .schemas import DiagnosticStep, EvidenceItem, SearchParams, Stage, normalize
@@ -73,12 +75,20 @@ def evaluate(profile: Profile, query: SearchParams) -> CheckedProfile:
     return CheckedProfile(profile, checks)
 
 
-def filter_profiles(profiles: tuple[Profile, ...], query: SearchParams) -> tuple[list[CheckedProfile], list[DiagnosticStep]]:
+def filter_profiles(profiles: tuple[Profile, ...], query: SearchParams,
+                    observer: Callable[[str, float, int, int], None] | None = None,
+                    ) -> tuple[list[CheckedProfile], list[DiagnosticStep]]:
+    started = perf_counter_ns() if observer else 0
     pool = [evaluate(profile, query) for profile in profiles]
+    if observer:
+        observer('constraints.evaluate', (perf_counter_ns() - started) / 1_000_000, len(profiles), len(pool))
     steps = []
     for stage, label in STAGES:
+        started = perf_counter_ns() if observer else 0
         before = len(pool)
         pool = [item for item in pool if item.checks[stage].matched is not False]
         steps.append(DiagnosticStep(stage=stage, label=label, before=before, after=len(pool),
                                     excluded=before - len(pool), count=len(pool)))
+        if observer:
+            observer(f'filter.{stage}', (perf_counter_ns() - started) / 1_000_000, before, len(pool))
     return pool, steps

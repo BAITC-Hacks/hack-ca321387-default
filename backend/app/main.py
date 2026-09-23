@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException
 
 from .catalog import Catalog, CatalogError, DEFAULT_DATASET, UnknownOption, load_catalog
 from .matching import MatchingService
-from .feature_schemas import DetailedMatchResponse
+from .feature_schemas import DebugMatchResponse, DetailedMatchResponse
 from .discovery import (
     AvailabilityRequest, AvailabilityResponse, DemoPresetsResponse,
     build_demo_presets, find_availability,
@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None = None) -> FastAPI:
+    # Explicit opt-in at app creation; disabled routes are absent from OpenAPI as well.
+    trace_enabled = os.getenv('ENABLE_MATCH_TRACE', 'false').strip().casefold() == 'true'
     preset_cache: tuple[Catalog, DemoPresetsResponse] | None = None
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
@@ -137,6 +139,11 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
         # Cache belongs to this immutable snapshot. A replacement/restart rebuilds it.
         preset_cache = (snapshot, result)
         return result
+
+    if trace_enabled:
+        @app.post('/api/debug/match', response_model=DebugMatchResponse, responses=errors)
+        def debug_match(query: SearchParams) -> DebugMatchResponse:
+            return service().debug_match(query)
 
     return app
 

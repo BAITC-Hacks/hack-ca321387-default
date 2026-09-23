@@ -8,7 +8,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.app.catalog import Catalog, Profile
-from backend.app.feature_schemas import DetailedMatchResponse
+from backend.app.feature_schemas import DebugMatchResponse, DetailedMatchResponse
 from backend.app.main import create_app
 from backend.app.matching import MatchingService
 from backend.app.rules import STAGES
@@ -64,6 +64,27 @@ class MatchFeatureTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
 
+    def test_details_and_trace_preserve_normal_response_for_zero_to_top_three(self) -> None:
+        for size in (0, 1, 2, 3, 5):
+            with self.subTest(size=size):
+                # Keep a known category/city when every candidate fails availability.
+                records = tuple(profile(str(index)) for index in range(size)) or (
+                    profile('busy', busy_dates=['2026-11-18']),)
+                service = MatchingService(catalog(*records))
+                ordinary = service.match(request())
+                detailed = service.details(request())
+                traced = service.debug_match(request())
+                self.assertEqual(detailed.match, ordinary)
+                self.assertEqual(traced.details, detailed)
+                self.assertEqual(len(detailed.match.results), min(size, 3))
+                self.assertEqual(len(detailed.ranking), min(size, 3))
+                self.assertEqual(detailed.match.total_eligible, size)
+                self.assertEqual(detailed.comparison.candidate_ids,
+                                 [item.id for item in ordinary.results])
+                self.assertEqual([item.position for item in detailed.ranking],
+                                 list(range(1, min(size, 3) + 1)))
+                self.assertEqual(detailed.funnel[-1].after, size)
+                self.assertEqual(ordinary.status, 'matched' if size else 'no_match')
 
     def test_details_preserve_category_not_found_and_empty_comparison(self) -> None:
         service = MatchingService(catalog(profile('host', city='Астана'),
@@ -76,6 +97,19 @@ class MatchFeatureTests(unittest.TestCase):
         self.assertEqual(result.comparison.decisions, [])
         self.assertEqual(result.comparison.formats, {})
 
+    def test_each_enhanced_request_executes_pipeline_and_model_only_once(self) -> None:
+        for method in ('details', 'debug_match'):
+            with self.subTest(method=method):
+                provider = CountingSemantic()
+                service = MatchingService(catalog(profile('free')), provider)
+                with patch.object(service, '_execute', wraps=service._execute) as execution:
+                    getattr(service, method)(request())
+                self.assertEqual(execution.call_count, 1)
+                self.assertEqual(provider.calls, 1)
+        provider = CountingSemantic()
+        service = MatchingService(catalog(profile('busy', busy_dates=['2026-11-18'])), provider)
+        service.debug_match(request())
+        self.assertEqual(provider.calls, 0)
 
     def test_hard_filters_and_funnel_use_same_facts_even_with_maximum_text_scores(self) -> None:
         records = (
@@ -117,6 +151,23 @@ class MatchFeatureTests(unittest.TestCase):
         self.assertIsNone(result.match.results[0].evidence.language.matched)
         self.assertIsNone(result.match.results[0].evidence.duration.matched)
 
+    def test_not_applicable_duration_and_missing_text_scores_have_explicit_states(self) -> None:
+        record = profile('no-presence', max_hours=None, duration_policy='not_applicable', synthetic=True)
+        provider = CountingSemantic({record.id: (None, None)})
+        result = MatchingService(catalog(record), provider).debug_match(request())
+        card = result.details.match.results[0]
+        components = {item.component: item for item in result.details.ranking[0].components}
+        self.assertEqual(components['duration'].state, 'not_applicable')
+        for key in ('semantic', 'lexical'):
+            self.assertEqual(components[key].state, 'unavailable')
+            self.assertIsNone(components[key].contribution)
+            self.assertTrue(components[key].reason)
+        self.assertIsNone(card.max_hours)
+        self.assertIsNone(card.semantic_score)
+        self.assertTrue(card.synthetic)
+        self.assertIsNone(card.evidence.duration.matched)
+        self.assertEqual([notice.code for notice in result.trace.notices], ['text_score_missing'])
+        self.assertEqual(result.trace.notices[0].candidate_id, record.id)
 
     def test_score_contributions_preserve_raw_inputs_at_rounding_boundaries(self) -> None:
         # The rounded public component can produce a different final rounding.
@@ -146,6 +197,25 @@ class MatchFeatureTests(unittest.TestCase):
                     naive = (card.score_breakdown.semantic or 0) * (card.score_weights.semantic or 0)
                     self.assertNotEqual(round(naive, 6), card.score)
 
+    def test_partial_text_components_renormalize_without_rejecting_float_roundoff(self) -> None:
+        for semantic, lexical in ((None, 1.0), (1.0, None), (None, None)):
+            with self.subTest(semantic=semantic, lexical=lexical):
+                provider = CountingSemantic({'one': (semantic, lexical)})
+                record = profile('one', price=1e-12, max_hours=12)
+                result = MatchingService(catalog(record), provider).debug_match(request())
+                detail = result.details.ranking[0]
+                self.assertEqual(detail.score, 1)
+                total = sum(item.contribution for item in detail.components if item.contribution is not None)
+                self.assertEqual(total, detail.unrounded_score)
+                self.assertEqual(total + detail.rounding_adjustment, detail.score)
+                self.assertAlmostEqual(sum(item.weight for item in detail.components if item.weight is not None), 1)
+                for item in detail.components:
+                    absent = (item.component == 'semantic' and semantic is None
+                              or item.component == 'lexical' and lexical is None)
+                    self.assertEqual(item.state, 'unavailable' if absent else 'active')
+                    if absent:
+                        self.assertIsNone(item.contribution)
+                self.assertEqual([notice.code for notice in result.trace.notices], ['text_score_missing'])
 
     def test_comparison_explains_score_price_then_identifier_without_inventing_factors(self) -> None:
         # Without duration, these signals compensate differing budget components.
@@ -172,6 +242,48 @@ class MatchFeatureTests(unittest.TestCase):
         self.assertEqual(ranked.comparison.decisions[0].decided_by, 'score')
         self.assertGreater(ranked.comparison.decisions[0].score_gap, 0)
 
+    def test_trace_timings_funnel_and_identifiers_describe_same_execution(self) -> None:
+        service = MatchingService(catalog(profile('busy', busy_dates=['2026-11-18']), profile('free')),
+                                  CountingSemantic())
+        result = service.debug_match(request(city='  аЛМАТЫ  ', language=' РУССКИЙ '))
+        trace = result.trace
+        self.assertEqual(str(UUID(trace.request_id)), trace.request_id)
+        self.assertEqual(UUID(trace.request_id).version, 4)
+        self.assertEqual(trace.normalized_query, request())
+        self.assertEqual(trace.model_info, result.details.match.model_info)
+        self.assertEqual((trace.catalog_count, trace.total_eligible, trace.returned_count), (2, 1, 1))
+        stages = {item.stage: item for item in trace.stages}
+        self.assertEqual(len(stages), len(trace.stages))
+        for step in result.details.funnel:
+            timing = stages[f'filter.{step.stage}']
+            self.assertEqual((timing.before, timing.after), (step.before, step.after))
+        self.assertIn('ranking.semantic', stages)
+        self.assertIn('details.assemble', stages)
+        self.assertIn('query.normalize', stages)
+        self.assertTrue(math.isfinite(trace.total_ms))
+        self.assertGreater(trace.total_ms, 0)
+        self.assertTrue(all(math.isfinite(item.elapsed_ms) and 0 <= item.elapsed_ms <= trace.total_ms
+                            for item in trace.stages))
+        self.assertGreaterEqual(trace.total_ms, sum(item.elapsed_ms for item in trace.stages))
+        self.assertNotEqual(service.debug_match(request()).trace.request_id, trace.request_id)
+
+    def test_trace_degradation_is_sanitized_and_preserves_real_fallback(self) -> None:
+        secret = 'provider-secret-token-and-internal-stack'
+        provider = CountingSemantic(failure=SemanticUnavailable(secret, 'semantic_timeout'))
+        service = MatchingService(catalog(profile('good'), profile('busy', busy_dates=['2026-11-18'])), provider)
+        ordinary = service.match(request())
+        result = service.debug_match(request())
+        self.assertEqual(result.details.match, ordinary)
+        self.assertEqual(result.trace.model_info.semantic_model, 'unavailable')
+        self.assertTrue(result.trace.model_info.fallback_used)
+        self.assertEqual(result.trace.notices[0].code, 'semantic_timeout')
+        self.assertNotIn(secret, result.model_dump_json())
+        self.assertEqual(result.details.comparison.candidate_ids, ['good'])
+        for item in result.details.ranking[0].components:
+            if item.component in ('semantic', 'lexical'):
+                self.assertEqual(item.state, 'unavailable')
+                self.assertIsNone(item.value)
+                self.assertIsNone(item.contribution)
 
     def test_details_http_contract_and_validation_keep_ordinary_search_compatible(self) -> None:
         with TestClient(create_app(catalog(profile('one'), profile('two')))) as client:
@@ -184,6 +296,24 @@ class MatchFeatureTests(unittest.TestCase):
             self.assertNotIn('ranking', ordinary.json())
             for changes in ({'category': 'unknown'}, {'duration': 13}, {'date': '2026-11-18T00:00:00Z'}):
                 invalid = client.post('/api/match/details', json=BASE | changes)
+                self.assertEqual(invalid.status_code, 422)
+                ErrorResponse.model_validate(invalid.json())
+
+    def test_debug_http_is_absent_by_default_and_explicitly_enabled(self) -> None:
+        with TestClient(create_app(catalog(profile('one')))) as client:
+            disabled = client.post('/api/debug/match', json=BASE)
+            self.assertEqual(disabled.status_code, 404)
+            self.assertEqual(disabled.json()['code'], 'route_not_found')
+            self.assertNotIn('/api/debug/match', client.get('/openapi.json').json()['paths'])
+        with patch.dict(os.environ, {'ENABLE_MATCH_TRACE': 'true'}):
+            with TestClient(create_app(catalog(profile('one')))) as client:
+                ordinary = client.post('/api/match', json=BASE)
+                traced = client.post('/api/debug/match', json=BASE)
+                self.assertEqual(traced.status_code, 200, traced.text)
+                DebugMatchResponse.model_validate(traced.json())
+                self.assertEqual(traced.json()['details']['match'], ordinary.json())
+                self.assertIn('/api/debug/match', client.get('/openapi.json').json()['paths'])
+                invalid = client.post('/api/debug/match', json=BASE | {'budget': 0})
                 self.assertEqual(invalid.status_code, 422)
                 ErrorResponse.model_validate(invalid.json())
 
