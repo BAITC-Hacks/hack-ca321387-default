@@ -10,9 +10,10 @@ interface SearchFormProps {
   onSubmit: (value: SearchParams) => void
   metadata?: Metadata
   pending: boolean
+  serverErrors?: Array<{ field: string | null; message: string }>
 }
 
-export function SearchForm({ value, onChange, onSubmit, metadata, pending }: SearchFormProps) {
+export function SearchForm({ value, onChange, onSubmit, metadata, pending, serverErrors = [] }: SearchFormProps) {
   const [errors, setErrors] = useState<SearchErrors>({})
   const options = metadata || FALLBACK_METADATA
 
@@ -29,7 +30,7 @@ export function SearchForm({ value, onChange, onSubmit, metadata, pending }: Sea
     if (!value.event_type) next.event_type = 'Выберите тип мероприятия.'
     if (!value.category) next.category = 'Выберите категорию.'
     if (!Number.isFinite(value.budget) || value.budget <= 0 || value.budget > 100_000_000) next.budget = 'Укажите бюджет от 1 до 100 000 000 ₸.'
-    if (value.duration !== undefined && (value.duration <= 0 || value.duration > 12)) next.duration = 'Выберите длительность до 12 часов.'
+    if (value.duration != null && (value.duration <= 0 || value.duration > 12)) next.duration = 'Выберите длительность до 12 часов.'
     setErrors(next)
 
     const firstInvalid = Object.keys(next)[0]
@@ -50,7 +51,7 @@ export function SearchForm({ value, onChange, onSubmit, metadata, pending }: Sea
         <Text className="field-hint">* Обязательные поля</Text>
       </Flex>
       <form onSubmit={submit} noValidate>
-        <SearchFields value={value} options={options} errors={errors} update={update} />
+        <SearchFields value={value} options={options} errors={{ ...Object.fromEntries(serverErrors.filter((item) => item.field).map((item) => [item.field, item.message])), ...errors }} update={update} />
         <Flex className="search-actions" align="center" justify="space-between" gap={4} wrap="wrap">
           <Text>Покажем до трёх доступных вариантов и объясним выбор.</Text>
           <Button type="submit" className="primary-button" disabled={pending} aria-busy={pending}>

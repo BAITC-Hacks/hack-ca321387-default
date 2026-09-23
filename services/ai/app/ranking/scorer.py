@@ -1,4 +1,4 @@
-from app.ranking.semantic import canonical_query, tfidf_cosine
+from app.ranking.semantic import canonical_query, tfidf_cosine, lexical_overlap
 from app.ranking.weights import RANKING_VERSION, TOP_K_LIMIT, WITH_DURATION, WITHOUT_DURATION
 from app.schemas.models import (
     CandidateEvidence,
@@ -42,14 +42,6 @@ def _score(candidate, query, semantic: float, lexical: float) -> tuple[float, Sc
     return round(score, 6), breakdown
 
 
-def _lexical_score(query_text: str, description: str) -> float:
-    query_terms = set(query_text.casefold().split())
-    document_terms = set(description.casefold().split())
-    if not query_terms or not document_terms:
-        return 0.0
-    return len(query_terms & document_terms) / len(query_terms | document_terms)
-
-
 def rank_candidates(request: RankRequest) -> RankResponse:
     query = request.query
     query_text = canonical_query(query.category, query.event_type, query.preferences)
@@ -70,7 +62,7 @@ def rank_candidates(request: RankRequest) -> RankResponse:
         if not (budget_match and format_match and language_match and duration_match):
             continue
 
-        lexical = _lexical_score(query_text, candidate.description)
+        lexical = lexical_overlap(query_text, candidate.description)
         score, breakdown = _score(candidate, query, semantic, lexical)
         budget_reason = (
             f"Цена {candidate.price:,} ₸ входит в бюджет {query.budget:,} ₸".replace(",", " ")

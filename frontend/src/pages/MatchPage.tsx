@@ -7,6 +7,7 @@ import { ResultsSection } from '../features/matching/ResultsSection'
 import { useMatch } from '../features/matching/useMatch'
 import { DEFAULT_SEARCH } from '../features/search/search.constants'
 import { useSettings } from '../features/settings/useSettings'
+import { ApiError } from '../shared/api/client'
 import type { SearchParams } from '../shared/types/match'
 
 export function MatchPage() {
@@ -32,7 +33,7 @@ export function MatchPage() {
     element?.focus({ preventScroll: true })
   }
   const selectDate = (date: string) => {
-    const next = { ...draft, date }
+    const next = { ...(submitted ?? draft), date }
     setDraft(next)
     submit(next)
   }
@@ -45,7 +46,11 @@ export function MatchPage() {
         <Text className="hero-description">EventLens проверяет дату, бюджет и параметры мероприятия, ранжирует доступных подрядчиков и показывает факты, которые повлияли на результат.</Text>
         <Text className="hero-note">До 3 рекомендаций <span>·</span> Повторяемый результат <span>·</span> Прозрачные причины</Text>
       </Box>
-      <SearchForm value={draft} onChange={setDraft} onSubmit={submit} metadata={metadata.data} pending={match.isPending} />
+      {metadata.isError && <div className="state-panel error-panel" role="alert">
+        <p>{metadata.error.message}</p><button className="secondary-button" type="button" onClick={() => void metadata.refetch()}>Повторить загрузку справочников</button>
+      </div>}
+      {metadata.isPending && <p role="status">Загружаем справочники…</p>}
+      <SearchForm value={draft} onChange={setDraft} onSubmit={submit} metadata={metadata.data} pending={match.isPending} serverErrors={match.error instanceof ApiError && submitted === draft ? match.error.fields : []} />
       <div ref={resultsRef} className="results-anchor">
         <ResultsSection response={match.data} query={submitted} pending={match.isPending} error={match.isError ? match.error.message : null} onRetry={() => submitted && submit(submitted)} onFocusField={focusField} onDateSelect={selectDate} />
       </div>

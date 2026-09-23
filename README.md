@@ -1,56 +1,50 @@
 # EventLens
 
 Explainable selection of event contractors in Kazakhstan. The React frontend
-shows up to three eligible profiles, evidence for each recommendation,
-filter-funnel diagnostics, and nearby-date availability.
+uses the real FastAPI API by default. The backend loads the 66 supplied profiles,
+checks all hard constraints, ranks eligible profiles and returns at most three
+cards with evidence, diagnostic counts and nearby-date alternatives.
 
-## Architecture
-
-- `frontend/` - React, Vite, Chakra UI and TanStack Query UI and API adapters.
-- `backend/` - FastAPI application API; `/api/match` is not implemented yet.
-- `services/ai/` - deterministic ranking and evidence API, prepared for backend integration.
-- `docs/` - architecture and project documentation.
-- `docker-compose.yml` - runs all three services and explicitly enables the
-  frontend's demo adapter, backed by the 66 profiles from the supplied CSV.
+See [architecture and API contract](docs/ARCHITECTURE.md) for rules, score weights,
+unknown-data policy, schema fields and degradation modes.
 
 ## Development
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The development server uses the demo adapter by default. It reads the same
-anonymized profiles supplied under `docs/`, including real busy dates and
-synthetic-profile flags. Filters, results and adjacent-date counts are computed
-from these local records. This is demonstration data, not a live backend.
-
-To use the real API, set `VITE_USE_MOCK_API=false` in `frontend/.env` and restart
-Vite. The frontend then calls `POST /api/match` and `GET /api/meta/options` via
-`VITE_API_URL` (default `/api`). The metadata request falls back to the known
-catalog options if that endpoint returns 404. Until `/api/match` is added to
-the backend, real mode shows the error and retry state.
-
-`frontend/.env.example` documents both variables. In production builds, mock
-mode is off unless `VITE_USE_MOCK_API=true` is set explicitly; the Docker Compose
-demo sets it as a build argument.
-
-Run backend locally:
+From the repository root (Python 3.12+ and a Node version supported by Vite 8):
 
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+python3 -m venv backend/.venv
+backend/.venv/bin/python -m pip install -r backend/requirements-dev.txt
+npm --prefix frontend ci
 ```
 
-Run AI service locally:
+Start these in three terminals, from the repository root:
 
 ```bash
-cd services/ai
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8100
+# Backend, real CSV, API and OpenAPI
+backend/.venv/bin/python -m uvicorn backend.app.main:app --reload --port 8000
+
+# Existing AI service: deterministic text similarity, no API keys
+backend/.venv/bin/python -m uvicorn app.main:app --app-dir services/ai --port 8100
+
+# Frontend; /api is proxied to localhost:8000
+npm --prefix frontend run dev
 ```
+
+Frontend: http://localhost:5173. API reference: http://localhost:8000/docs.
+The backend also works while AI is unavailable, with explicit null text scores
+and a disclosed budget/duration ranking mode.
+
+Server env (see `.env.example`): optional `DATASET_PATH`, `AI_SERVICE_URL`
+(default `http://localhost:8100`), `AI_TIMEOUT_SECONDS` (default 2),
+`SEMANTIC_MODE=tfidf|disabled`, `CORS_ORIGINS` (comma-separated).
+Uvicorn can read the root file explicitly with `--env-file .env`.
+No server environment file or secrets are imported into the frontend.
+
+Frontend env (`frontend/.env.example`): `VITE_API_URL=/api`,
+`VITE_USE_MOCK_API=false`. Production refuses mock mode. Optional dev mock mode
+uses a finite set of recorded backend responses, documented in the architecture;
+it never silently replaces an API failure.
 
 ## Docker
 
@@ -58,11 +52,54 @@ uvicorn app.main:app --reload --port 8100
 docker compose up --build
 ```
 
-Frontend: `http://localhost:3000`
+Frontend: http://localhost:3000; backend health: http://localhost:8000/api/health;
+AI health: http://localhost:8100/health. Backend image includes the CSV from the
+root build context. It starts independently of AI health and supports degradation.
+The Compose frontend calls the real backend; it does not enable fixtures.
 
-Backend health: `http://localhost:8000/api/health`
+## Tests and contract regeneration
 
-AI health: `http://localhost:8100/health`
+```bash
+backend/.venv/bin/python -m unittest discover -s backend/tests -v
+backend/.venv/bin/python -m mypy --strict backend/app
+# Run AI tests with its own app import root
+(cd services/ai && ../../backend/.venv/bin/python -m unittest discover -s tests -v)
+backend/.venv/bin/python -m backend.scripts.http_smoke
+npm --prefix frontend test
+npm --prefix frontend run lint
+npm --prefix frontend run build
+
+# After deliberately changing backend schemas/data/algorithm:
+backend/.venv/bin/python -m backend.scripts.export_contract
+backend/.venv/bin/python -m backend.scripts.export_fixtures
+```
+
+Tested runtime: Python 3.13.0, FastAPI 0.124.4, Pydantic 2.13.5,
+Uvicorn 0.38.0; Node 25.4.0, React 19.3.0, Vite 8.3.0,
+TypeScript 6.0.3, Chakra UI 3.37.0, TanStack Query 5.103.2.
+Existing runtime dependency ranges/lockfile were preserved; test dependencies
+are in `backend/requirements-dev.txt`.
+
+## Demo requests
+
+```bash
+curl http://localhost:8000/api/meta/options
+curl -X POST http://localhost:8000/api/match \
+  -H 'Content-Type: application/json' \
+  -d '{"city":"Алматы","date":"2026-11-18","event_type":"корпоратив","category":"Ведущий","budget":1000000,"language":"русский","duration":6}'
+```
+
+For the supplied CSV and TF-IDF mode, this request has four eligible profiles;
+the displayed IDs are `HK-44923`, `HK-27222`, `HK-77838`. Set budget to 100 for
+`no_match` and a verified budget suggestion; set city to `Зарубежье` for
+`category_not_found`. Unknown dictionary values instead return HTTP 422.
+
+Verification in this workspace: backend/API tests, AI tests, strict backend
+types, frontend contract/component tests, lint, build and real HTTP smoke passed.
+Docker execution could not be checked because the CLI is absent. Browser control
+is unavailable due to system permissions, so live form clicks, expanded details,
+layout and browser Retry still require a manual pass. Static component rendering
+and API retry tests cover those states without claiming browser E2E.
 
 ## Branch synchronization
 

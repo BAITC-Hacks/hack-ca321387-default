@@ -111,3 +111,24 @@ class WhatIfResponse(BaseModel):
     selected_available: int = Field(ge=0)
     alternatives: list[WhatIfDate]
     explanation: str
+
+
+class SimilarityDocument(BaseModel):
+    id: str = Field(min_length=1)
+    text: str = Field(max_length=20000)
+
+
+class SimilarityRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=1000)
+    documents: list[SimilarityDocument] = Field(max_length=1000)
+
+
+class TextSimilarity(BaseModel):
+    id: str
+    semantic: float | None = Field(ge=0, le=1)
+    lexical: float | None = Field(ge=0, le=1)
+
+
+class SimilarityResponse(BaseModel):
+    model: Literal['tfidf-v1'] = 'tfidf-v1'
+    scores: list[TextSimilarity]

@@ -1,5 +1,25 @@
 # EventLens AI service
 
+The product backend uses **POST /similarity** for text signals only. It owns all
+eligibility checks, final score, ordering, evidence and diagnostics. The older
+`/rank`, `/constraints/diagnose` and `/what-if` APIs below remain compatible for
+legacy callers and are not in the product request path.
+
+## Product text API
+
+`POST /similarity` accepts `{"query":"Ведущий корпоратив","documents":[{"id":"HK-1","text":"Описание"}]}`
+and returns `{"model":"tfidf-v1","scores":[{"id":"HK-1","semantic":0.0,"lexical":0.0}]}`.
+Scores are in [0,1]; a missing/empty description has null scores. The backend sends
+the full catalog in one request so changing availability cannot change the corpus.
+Results are memoized by query and complete text corpus (bounded to 128 entries).
+The backend applies a 2-second timeout and reports absent semantic scores explicitly
+if this service is unavailable. No external model or LLM is required.
+
+See [the product architecture](../../docs/ARCHITECTURE.md) for active weights,
+null-component renormalization, versioning and degradation behavior.
+
+## Legacy ranking API
+
 The service ranks candidates that the backend has already selected for a
 request. The backend remains the source of truth for category, city and date
 constraints. The AI service defensively rechecks format, budget, language and
