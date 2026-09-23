@@ -63,3 +63,12 @@ Frontend: `http://localhost:3000`
 Backend health: `http://localhost:8000/api/health`
 
 AI health: `http://localhost:8100/health`
+
+## Branch synchronization
+
+After each push to `main`, `.github/workflows/sync-main.yml` merges the latest
+`main` into both `arys` and `damir`, then pushes each branch separately.
+The workflow preserves branch-specific commits and never force-pushes. If a
+merge conflicts or a branch rule rejects the bot push, that branch's job fails
+without replacing its content; resolve the conflict or branch permission in
+GitHub and rerun the workflow manually.
