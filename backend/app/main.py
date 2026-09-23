@@ -14,7 +14,8 @@ from .catalog import Catalog, CatalogError, DEFAULT_DATASET, UnknownOption, load
 from .matching import MatchingService
 from .feature_schemas import DetailedMatchResponse
 from .discovery import (
-    AvailabilityRequest, AvailabilityResponse, find_availability,
+    AvailabilityRequest, AvailabilityResponse, DemoPresetsResponse,
+    build_demo_presets, find_availability,
 )
 from .schemas import ErrorResponse, FieldError, MatchResponse, Metadata, SearchParams
 from .semantic import HttpSemanticProvider, SemanticProvider
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None = None) -> FastAPI:
+    preset_cache: tuple[Catalog, DemoPresetsResponse] | None = None
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         try:
@@ -123,6 +125,18 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
     @app.post('/api/availability', response_model=AvailabilityResponse, responses=errors)
     def availability(request: AvailabilityRequest) -> AvailabilityResponse:
         return find_availability(service().catalog, request)
+
+    @app.get('/api/demo-presets', response_model=DemoPresetsResponse, responses=errors)
+    def demo_presets() -> DemoPresetsResponse:
+        nonlocal preset_cache
+        snapshot = service().catalog
+        cached = preset_cache
+        if cached is not None and cached[0] is snapshot:
+            return cached[1]
+        result = build_demo_presets(snapshot)
+        # Cache belongs to this immutable snapshot. A replacement/restart rebuilds it.
+        preset_cache = (snapshot, result)
+        return result
 
     return app
 

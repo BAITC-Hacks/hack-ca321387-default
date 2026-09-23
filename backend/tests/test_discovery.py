@@ -4,7 +4,7 @@ from datetime import date, datetime
 from pydantic import ValidationError
 
 from backend.app.catalog import Catalog, DEFAULT_DATASET, Profile, UnknownOption, load_catalog
-from backend.app.discovery import AvailabilityRequest, find_availability
+from backend.app.discovery import AvailabilityRequest, build_demo_presets, find_availability
 from backend.app.matching import MatchingService
 from backend.app.rules import filter_profiles
 from backend.app.schemas import MAX_DATE, MIN_DATE, SearchParams
@@ -97,3 +97,64 @@ class AvailabilityTests(unittest.TestCase):
         self.assertTrue(all(day.available == 1 for day in result.days))
         with self.assertRaises(UnknownOption):
             find_availability(snapshot, AvailabilityRequest(query=query(category='Неизвестно')))
+
+
+class DemoPresetTests(unittest.TestCase):
+    def check_presets(self, snapshot: Catalog) -> None:
+        result = build_demo_presets(snapshot)
+        self.assertEqual(result.data_version, snapshot.version)
+        self.assertEqual(len({p.id for p in result.presets} | {p.id for p in result.omitted}), 4)
+        for preset in result.presets:
+            self.assertEqual(snapshot.canonical_query(preset.query), preset.query)
+            self.assertEqual(SearchParams.model_validate(preset.query.model_dump()), preset.query)
+            actual = MatchingService(snapshot).match(preset.query)
+            self.assertEqual(actual.status, preset.expected_status)
+            self.assertEqual(actual.total_eligible, preset.eligible_count)
+            if preset.related_query is not None:
+                related, _ = filter_profiles(snapshot.profiles, preset.related_query)
+                self.assertEqual(len(related), preset.related_eligible_count)
+
+    def test_scenarios_are_verified_not_fixed_results(self) -> None:
+        snapshot = Catalog((profile('1', busy_dates=['2026-09-23']), profile('2', price=600000),
+                            profile('rare', categories=['Фокусник'], price=300000)), 'scenarios')
+        self.check_presets(snapshot)
+        result = build_demo_presets(snapshot)
+        presets = {preset.id: preset for preset in result.presets}
+        self.assertEqual(set(presets), {'normal_match', 'strict_budget', 'date_effect', 'rare_category'})
+        self.assertGreater(presets['normal_match'].eligible_count, 0)
+        strict = presets['strict_budget']
+        self.assertEqual(strict.expected_status, 'no_match')
+        self.assertEqual(strict.eligible_count, 0)
+        self.assertIsNotNone(strict.related_query)
+        assert strict.related_query is not None
+        self.assertEqual(strict.query.model_dump(exclude={'budget'}),
+                         strict.related_query.model_dump(exclude={'budget'}))
+        changed_date = presets['date_effect']
+        assert changed_date.related_query is not None
+        assert changed_date.related_eligible_count is not None
+        self.assertLess(changed_date.eligible_count, changed_date.related_eligible_count)
+        self.assertEqual(changed_date.query.model_dump(exclude={'date'}),
+                         changed_date.related_query.model_dump(exclude={'date'}))
+        self.assertEqual(presets['rare_category'].query.category, 'Фокусник')
+        self.assertEqual(build_demo_presets(Catalog(tuple(reversed(snapshot.profiles)), snapshot.version)), result)
+
+    def test_dataset_changes_rebuild_counts_and_omit_unavailable_scenarios(self) -> None:
+        snapshot = Catalog((profile('1'),), 'initial')
+        result = build_demo_presets(snapshot)
+        self.assertEqual({preset.id for preset in result.presets}, {'normal_match', 'strict_budget'})
+        self.assertEqual({preset.id for preset in result.omitted}, {'date_effect', 'rare_category'})
+        self.assertTrue(all(item.reason for item in result.omitted))
+        changed = Catalog((profile('1', busy_dates=None),), 'changed')
+        result = build_demo_presets(changed)
+        self.assertEqual(result.data_version, 'changed')
+        self.assertEqual(result.presets, [])
+        self.assertEqual(len(result.omitted), 4)
+        self.check_presets(snapshot)
+        self.check_presets(changed)
+
+    def test_real_snapshot_presets_match_current_rules(self) -> None:
+        self.check_presets(load_catalog(DEFAULT_DATASET))
+
+
+if __name__ == '__main__':
+    unittest.main()
