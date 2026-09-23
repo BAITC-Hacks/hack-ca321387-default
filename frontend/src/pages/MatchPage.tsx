@@ -38,7 +38,7 @@ export function MatchPage() {
     submit(next)
   }
 
-  return <AppShell>
+  return <AppShell chatContext={{ city: draft.city, date: draft.date, eventType: draft.event_type, category: draft.category }}>
     <main>
       <Box className="hero" as="section">
         <Text className="eyebrow"><span className="eyebrow-line" /> Умный подбор подрядчиков</Text>

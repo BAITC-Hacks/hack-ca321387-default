@@ -2,10 +2,13 @@ import { Box, Flex, Text } from '@chakra-ui/react'
 import { useRef, useState } from 'react'
 import { SettingsDrawer } from '../../features/settings/SettingsDrawer'
 import { ThemeToggle } from '../../features/settings/ThemeToggle'
+import { ChatSidebar } from '../../features/chat/ChatSidebar'
+import type { ChatContext } from '../../features/chat/chat.types'
 
-export function AppHeader() {
+export function AppHeader({ chatContext }: { chatContext: ChatContext }) {
   const infoDialog = useRef<HTMLDialogElement>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
 
   return (
     <>
@@ -22,6 +25,10 @@ export function AppHeader() {
               Как это работает
             </button>
             <ThemeToggle />
+            <button className="assistant-button" type="button" aria-haspopup="dialog" aria-expanded={chatOpen} onClick={() => setChatOpen(true)}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.4a7.6 7.6 0 0 1-8 7.6 8.5 8.5 0 0 1-3.4-.7L4 20l1.3-3.7A7.2 7.2 0 0 1 4 12.5C4 8.4 7.6 5 12 5s8 2.9 8 6.4Z" /><path d="M8.5 12h.01m3.49 0h.01m3.49 0h.01" /></svg>
+              <span>Ассистент</span>
+            </button>
             <button
               className="icon-button"
               type="button"
@@ -50,6 +57,7 @@ export function AppHeader() {
         </ol>
       </dialog>
       <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ChatSidebar open={chatOpen} onOpenChange={setChatOpen} context={chatContext} />
     </>
   )
 }
