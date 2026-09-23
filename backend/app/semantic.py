@@ -27,7 +27,9 @@ class SimilarityResponse(BaseModel):
 
 
 class SemanticUnavailable(RuntimeError):
-    pass
+    def __init__(self, message: str, code: str = 'semantic_unavailable'):
+        super().__init__(message)
+        self.code = code
 
 
 class SemanticProvider(Protocol):
@@ -58,4 +60,7 @@ class HttpSemanticProvider:
             return scores
         except (URLError, OSError, ValueError, ValidationError) as exc:
             logger.warning('Text similarity unavailable: %s', type(exc).__name__)
-            raise SemanticUnavailable('Text similarity unavailable') from exc
+            reason = exc.reason if isinstance(exc, URLError) else exc
+            code = ('semantic_timeout' if isinstance(reason, TimeoutError) else
+                    'semantic_invalid_response' if isinstance(exc, ValueError) else 'semantic_unreachable')
+            raise SemanticUnavailable('Text similarity unavailable', code) from exc
