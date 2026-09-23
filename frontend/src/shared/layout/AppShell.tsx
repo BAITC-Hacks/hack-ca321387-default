@@ -1,14 +1,19 @@
 import { Box, Container } from '@chakra-ui/react'
 import type { ReactNode } from 'react'
 import { AppHeader } from './AppHeader'
+import { AppFooter } from './AppFooter'
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <Box className="app-shell" minH="100vh" bg="bg.canvas" color="text.primary">
+    <Box className="app-shell" minH="100dvh" display="flex" flexDirection="column" bg="bg.canvas" color="text.primary">
       <AppHeader />
-      <Container maxW="1280px" px={{ base: 5, md: 8 }}>
-        {children}
-        <footer className="site-footer"><span>EventLens</span><span>HackAlem AI · 2026</span></footer>
+      <Box as="main" flex="1" width="100%">
+        <Container maxW="1280px" px={{ base: 5, md: 8 }}>
+          {children}
+        </Container>
+      </Box>
+      <Container maxW="1280px" width="100%" px={{ base: 5, md: 8 }}>
+        <AppFooter />
       </Container>
     </Box>
   )

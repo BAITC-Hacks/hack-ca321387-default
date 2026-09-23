@@ -2,6 +2,7 @@ import { Box, Button, Flex, Heading, Text } from '@chakra-ui/react'
 import { useState, type FormEvent } from 'react'
 import type { Metadata, SearchParams } from '../../shared/types/match'
 import { FALLBACK_METADATA } from './search.constants'
+import { GlassPanel } from '../../shared/ui/GlassPanel'
 import { SearchFields, type SearchErrors } from './SearchFields'
 
 interface SearchFormProps {
@@ -42,7 +43,7 @@ export function SearchForm({ value, onChange, onSubmit, metadata, pending, serve
   }
 
   return (
-    <Box className="glass-panel search-panel" as="section" aria-labelledby="search-title">
+    <GlassPanel as="section" className="search-panel" aria-labelledby="search-title">
       <Flex justify="space-between" align="start" gap={4} mb={7} wrap="wrap">
         <Box>
           <Text className="eyebrow">01 / Параметры поиска</Text>
@@ -59,6 +60,6 @@ export function SearchForm({ value, onChange, onSubmit, metadata, pending, serve
           </Button>
         </Flex>
       </form>
-    </Box>
+    </GlassPanel>
   )
 }

@@ -9,7 +9,11 @@
   --el-bg-canvas-top: #10141a;
   --el-bg-surface: #151920;
   --el-bg-elevated: #181d25;
-  --el-bg-glass: rgba(25, 29, 36, 0.88);
+  --el-bg-glass: rgba(22, 27, 36, 0.76);
+  --el-bg-glass-hover: rgba(31, 38, 49, 0.88);
+  --el-border-glass: rgba(255, 255, 255, 0.10);
+  --el-glass-shadow: 0 20px 54px rgba(0, 0, 0, 0.30);
+  --el-glass-refraction: rgba(255, 255, 255, 0.085);
   --el-bg-control: #11151b;
   --el-bg-control-hover: #171b22;
   --el-bg-subtle: rgba(255, 255, 255, 0.035);

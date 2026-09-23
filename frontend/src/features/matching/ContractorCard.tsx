@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { Contractor } from '../../shared/types/match'
 import { formatKZT, percent } from '../../shared/format'
 import { useSettings } from '../settings/useSettings'
+import { GlassPanel } from '../../shared/ui/GlassPanel'
 
 const evidenceLabels: Record<string, string> = {
   date: 'Дата', city: 'Город', category: 'Категория', budget: 'Бюджет',
@@ -23,7 +24,7 @@ export function ContractorCard({ contractor, index, lexicalMode }: ContractorCar
   const score = percent(contractor.score)
 
   return (
-    <article className={`contractor-card ${settings.compactResults ? 'is-compact' : ''}`} style={{ animationDelay: `${index * 60}ms` }}>
+    <GlassPanel as="article" interactive className={`contractor-card ${settings.compactResults ? 'is-compact' : ''}`} style={{ animationDelay: `${index * 60}ms` }}>
       <Flex className="card-top" justify="space-between" align="start" gap={4}>
         <div>
           <Text className="card-number">{String(index + 1).padStart(2, '0')} / РЕКОМЕНДАЦИЯ</Text>
@@ -99,6 +100,6 @@ export function ContractorCard({ contractor, index, lexicalMode }: ContractorCar
           </div>
         </div>
       )}
-    </article>
+    </GlassPanel>
   )
 }

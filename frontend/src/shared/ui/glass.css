@@ -1,0 +1,25 @@
+.liquid-glass {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--el-border-glass);
+  background: var(--el-bg-surface);
+  box-shadow: var(--el-glass-shadow), inset 0 1px 0 var(--el-glass-highlight);
+  transition: background-color var(--el-motion-normal), border-color var(--el-motion-normal), box-shadow var(--el-motion-normal);
+}
+.liquid-glass::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(145deg, var(--el-glass-refraction), transparent 38%);
+  content: '';
+  opacity: .52;
+  pointer-events: none;
+}
+.liquid-glass > * { position: relative; z-index: 1; }
+.liquid-glass-elevated { box-shadow: var(--el-shadow-dialog), inset 0 1px 0 var(--el-glass-highlight); }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .liquid-glass { background: var(--el-bg-glass); -webkit-backdrop-filter: blur(22px) saturate(135%); backdrop-filter: blur(22px) saturate(135%); }
+}
+.liquid-glass-interactive { transition: background-color var(--el-motion-normal), border-color var(--el-motion-normal), box-shadow var(--el-motion-normal), transform var(--el-motion-fast); }
+.liquid-glass-interactive:hover { border-color: var(--el-border-strong); background: var(--el-bg-glass-hover); box-shadow: var(--el-glass-shadow), inset 0 1px 0 var(--el-glass-highlight); transform: translateY(-2px); }
