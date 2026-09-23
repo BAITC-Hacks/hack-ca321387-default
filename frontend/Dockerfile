@@ -6,6 +6,10 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+ARG VITE_USE_MOCK_API=false
+ARG VITE_API_URL=/api
+ENV VITE_USE_MOCK_API=$VITE_USE_MOCK_API
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 FROM nginx:1.27-alpine
