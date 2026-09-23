@@ -23,8 +23,16 @@
 .hero-description { max-width: 680px; color: var(--el-text-secondary); font-size: clamp(15px,1.4vw,17px); line-height: 1.72; }
 .hero-note { margin-top: 22px; color: var(--el-text-muted); font-size: 12px; letter-spacing: .01em; }
 .hero-note span { padding-inline: 9px; color: var(--el-text-faint); }
-.site-footer { display: flex; justify-content: space-between; gap: 15px; margin-top: 75px; padding: 26px 0 38px; color: var(--el-text-muted); border-top: 1px solid var(--el-border-default); font-size: 12px; }
-.site-footer span:first-child { color: var(--el-text-secondary); font-weight: 600; }
+.site-footer { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 36px; margin-top: 60px; padding: 24px 0 34px; border-top: 1px solid var(--el-border-default); }
+.footer-brand { min-width: 0; }
+.footer-brand-lockup { display: flex; align-items: center; gap: 10px; }
+.footer-brand-name { margin: 0; color: var(--el-text-primary); font-size: 18px; font-weight: 600; letter-spacing: -.04em; line-height: 1.2; }
+.footer-description { margin: 9px 0 0; color: var(--el-text-secondary); font-size: 13px; line-height: 1.5; }
+.footer-event { margin: 13px 0 0; color: var(--el-text-muted); font-size: 12px; line-height: 1.5; }
+.footer-team { min-width: 230px; }
+.footer-team-heading { margin: 1px 0 10px; color: var(--el-text-muted); font-size: 11px; font-weight: 600; letter-spacing: .12em; line-height: 1.4; text-transform: uppercase; }
+.footer-team-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.footer-team-list li { color: var(--el-text-secondary); font-size: 13px; line-height: 1.45; word-break: normal; overflow-wrap: normal; }
 .info-dialog { width: min(540px,calc(100vw - 32px)); max-height: min(620px,calc(100vh - 32px)); margin: auto; padding: 28px; color: var(--el-text-primary); border: 1px solid var(--el-border-strong); border-radius: 20px; background: var(--el-bg-glass); box-shadow: var(--el-shadow-dialog); backdrop-filter: blur(24px) saturate(140%); }
 .info-dialog::backdrop { background: rgba(7,11,18,.42); backdrop-filter: blur(5px); }
 .dialog-head { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
@@ -42,5 +50,6 @@
   .hero { padding: 48px 0 35px; }
   .hero h1 { letter-spacing: -.055em; }
   .hero-note { line-height: 1.7; }
-  .site-footer { margin-top: 60px; }
+  .site-footer { grid-template-columns: minmax(0, 1fr); gap: 26px; margin-top: 52px; padding: 22px 0 30px; }
+  .footer-team { min-width: 0; }
 }
