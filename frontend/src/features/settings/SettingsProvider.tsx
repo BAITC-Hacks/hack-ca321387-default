@@ -1,21 +1,10 @@
-import { createContext, useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { themePalettes } from '../../app/theme'
-import { DEFAULT_SETTINGS, type AppSettings, type MotionPreference, type ResolvedTheme, type ThemeMode } from '../../shared/types/settings'
+import { SettingsContext, type SettingsContextValue } from './SettingsContext'
+import { DEFAULT_SETTINGS, type AppSettings, type ResolvedTheme } from '../../shared/types/settings'
 
 const SETTINGS_KEY = 'eventlens.settings'
 
-interface SettingsContextValue {
-  settings: AppSettings
-  resolvedTheme: ResolvedTheme
-  isMotionReduced: boolean
-  setTheme: (theme: ThemeMode) => void
-  toggleTheme: () => void
-  setMotionPreference: (motion: MotionPreference) => void
-  setCompactResults: (compact: boolean) => void
-  resetSettings: () => void
-}
-
-const SettingsContext = createContext<SettingsContextValue | null>(null)
 
 function readSettings(): AppSettings {
   try {
@@ -92,5 +81,3 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
 }
-
-export { SettingsContext }

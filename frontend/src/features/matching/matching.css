@@ -9,8 +9,8 @@
 .flow-steps strong { display: block; font-size: 15px; font-weight: 570; }
 .flow-steps p { margin-top: 7px; color: var(--el-text-muted); font-size: 13px; line-height: 1.5; }
 .cards-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; align-items: start; }
-.contractor-card { min-width: 0; overflow-wrap: anywhere; padding: 25px; border: 1px solid var(--el-border-default); border-radius: 21px; background: var(--el-bg-surface); box-shadow: var(--el-shadow-card), inset 0 1px 0 var(--el-glass-highlight); animation: rise-in var(--el-motion-slow) both; transition: border-color var(--el-motion-fast), background var(--el-motion-fast), transform var(--el-motion-fast); }
-.contractor-card:hover { border-color: var(--el-border-strong); background: var(--el-bg-elevated); transform: translateY(-2px); }
+.contractor-card { min-width: 0; overflow-wrap: anywhere; padding: 25px; border-radius: 20px; animation: rise-in var(--el-motion-slow) both; }
+
 .card-top { min-height: 105px; }
 .card-number { color: var(--el-accent-primary); font-size: 10px; font-weight: 680; letter-spacing: .13em; }
 .contractor-name { margin: 14px 0 6px; font-size: clamp(20px,1.8vw,26px); font-weight: 590; letter-spacing: -.05em; line-height: 1.15; }
@@ -27,12 +27,12 @@
 .synthetic-badge { padding: 6px 8px; color: var(--el-text-secondary); border: 1px solid var(--el-border-default); border-radius: 7px; background: var(--el-bg-subtle); font-size: 10px; line-height: 1.2; }
 .evidence-summary { padding: 20px 0; }
 .subsection-label { color: var(--el-text-soft); font-size: 12px; font-weight: 620; letter-spacing: .015em; }
-.evidence-grid { display: grid; gap: 13px; margin-top: 16px; }
-.evidence-row { display: flex; align-items: start; gap: 11px; }
+.evidence-grid { margin-top: 12px; border-top: 1px solid var(--el-border-default); }
+.evidence-row { display: grid; grid-template-columns: 7px minmax(0,1fr); align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--el-border-default); }
 .evidence-indicator { width: 7px; height: 7px; flex: 0 0 7px; margin-top: 6px; border-radius: 50%; background: var(--el-status-success); box-shadow: 0 0 0 3px var(--el-status-success-soft); }
-.evidence-row > div { min-width: 0; }
+.evidence-row > div { min-width: 0; display: grid; grid-template-columns: minmax(68px,.42fr) minmax(0,1fr); align-items: baseline; gap: 8px; }
 .evidence-label { display: block; color: var(--el-text-muted); font-size: 11px; }
-.evidence-fact { display: block; margin-top: 2px; color: var(--el-text-soft); font-size: 12px; line-height: 1.45; }
+.evidence-fact { display: block; color: var(--el-text-soft); font-size: 12px; line-height: 1.45; }
 .semantic-row { display: flex; justify-content: space-between; gap: 13px; padding: 17px 0; border-top: 1px solid var(--el-border-default); }
 .semantic-row p { max-width: 250px; margin: 6px 0 0; color: var(--el-text-secondary); font-size: 12px; line-height: 1.45; }
 .semantic-row strong { color: var(--el-accent-primary); font-size: 16px; font-weight: 580; font-variant-numeric: tabular-nums; }
@@ -62,7 +62,8 @@
 .date-tile strong { margin-top: 7px; font-size: 19px; font-weight: 580; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .date-tile small { color: var(--el-text-muted); font-size: 11px; }
 .no-result-layout { display: grid; grid-template-columns: minmax(0,2fr) minmax(250px,1fr); gap: 22px; }
-.doctor-panel, .field-change, .state-panel { padding: 27px; border: 1px solid var(--el-border-default); border-radius: 19px; background: var(--el-bg-surface); box-shadow: var(--el-shadow-card); }
+.doctor-panel { padding: 27px; border-radius: 20px; }
+.field-change, .state-panel { padding: 27px; border: 1px solid var(--el-border-default); border-radius: 19px; background: var(--el-bg-surface); box-shadow: var(--el-shadow-card); }
 .doctor-panel h3 { margin: 9px 0 21px; font-size: 23px; font-weight: 560; letter-spacing: -.04em; }
 .doctor-steps { border-top: 1px solid var(--el-border-default); }
 .doctor-step { display: grid; grid-template-columns: 33px 1fr auto; align-items: center; gap: 10px; min-height: 65px; padding: 9px 12px; border-bottom: 1px solid var(--el-border-default); }

@@ -9,7 +9,7 @@ export function AppHeader() {
 
   return (
     <>
-      <header className="site-header">
+      <header className="site-header liquid-glass">
         <Flex maxW="1280px" mx="auto" px={{ base: 5, md: 8 }} align="center" justify="space-between" minH="72px" gap={4}>
           <Flex align="center" gap="11px" minW={0}>
             <Box className="brand-mark" aria-hidden="true"><span /></Box>
@@ -36,7 +36,7 @@ export function AppHeader() {
         </Flex>
       </header>
 
-      <dialog ref={infoDialog} className="info-dialog" aria-labelledby="how-title" onClick={(event) => {
+      <dialog ref={infoDialog} className="info-dialog liquid-glass liquid-glass-elevated" aria-labelledby="how-title" onClick={(event) => {
         if (event.target === infoDialog.current) infoDialog.current?.close()
       }}>
         <div className="dialog-head">

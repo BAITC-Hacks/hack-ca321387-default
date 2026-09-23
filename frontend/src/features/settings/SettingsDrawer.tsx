@@ -21,7 +21,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
   return (
     <dialog
       ref={dialogRef}
-      className="settings-dialog"
+      className="settings-dialog liquid-glass liquid-glass-elevated"
       aria-labelledby="settings-title"
       onClose={() => onOpenChange(false)}
       onClick={(event) => {

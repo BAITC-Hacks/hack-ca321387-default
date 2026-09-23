@@ -1,6 +1,8 @@
 .app-shell { position: relative; isolation: isolate; min-height: 100vh; overflow: clip; background: var(--el-bg-canvas); color: var(--el-text-primary); transition: background-color var(--el-motion-normal), color var(--el-motion-normal); }
 .app-shell::before { position: absolute; z-index: -1; inset: 0 0 auto; height: 670px; content: ''; pointer-events: none; background: radial-gradient(ellipse 52% 48% at 50% -10%, var(--el-radial-illumination), transparent 80%), linear-gradient(180deg, var(--el-bg-canvas-top) 0%, var(--el-bg-canvas) 100%); }
-.site-header { border-bottom: 1px solid var(--el-border-default); transition: border-color var(--el-motion-normal); }
+.site-header { position: sticky; z-index: 20; top: 0; }
+.site-header.liquid-glass { border: 0; border-bottom: 1px solid var(--el-border-default); border-radius: 0; }
+
 .brand-mark { width: 27px; height: 27px; display: grid; flex: 0 0 27px; place-items: center; border: 1px solid color-mix(in srgb, var(--el-accent-primary) 70%, transparent); border-radius: 9px; transform: rotate(-9deg); background: var(--el-accent-soft); }
 .brand-mark span { width: 10px; height: 10px; border: 2px solid var(--el-accent-primary); border-radius: 50%; box-shadow: 0 0 0 4px var(--el-accent-soft); }
 .brand-name { font-size: 18px; font-weight: 630; letter-spacing: -.045em; }
@@ -33,8 +35,8 @@
 .footer-team-heading { margin: 1px 0 10px; color: var(--el-text-muted); font-size: 11px; font-weight: 600; letter-spacing: .12em; line-height: 1.4; text-transform: uppercase; }
 .footer-team-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .footer-team-list li { color: var(--el-text-secondary); font-size: 13px; line-height: 1.45; word-break: normal; overflow-wrap: normal; }
-.info-dialog { width: min(540px,calc(100vw - 32px)); max-height: min(620px,calc(100vh - 32px)); margin: auto; padding: 28px; color: var(--el-text-primary); border: 1px solid var(--el-border-strong); border-radius: 20px; background: var(--el-bg-glass); box-shadow: var(--el-shadow-dialog); backdrop-filter: blur(24px) saturate(140%); }
-.info-dialog::backdrop { background: rgba(7,11,18,.42); backdrop-filter: blur(5px); }
+.info-dialog { width: min(540px,calc(100vw - 32px)); max-height: min(620px,calc(100vh - 32px)); margin: auto; padding: 28px; color: var(--el-text-primary); border-radius: 20px; }
+.info-dialog::backdrop { background: rgba(7,11,18,.42); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
 .dialog-head { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
 .dialog-head h2 { font-size: 24px; font-weight: 580; letter-spacing: -.04em; }
 .dialog-close { width: 38px; height: 38px; display: grid; flex: 0 0 38px; place-items: center; padding: 0; color: var(--el-text-secondary); border: 1px solid var(--el-border-default); border-radius: 10px; background: var(--el-bg-elevated); font-size: 24px; line-height: 1; transition: color var(--el-motion-fast), border-color var(--el-motion-fast); }
