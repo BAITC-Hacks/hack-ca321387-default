@@ -1,7 +1,7 @@
 import catalog from './catalog.json'
-import type { AvailabilityDay, Contractor, DiagnosticStep, MatchResponse, SearchParams } from '../types/match'
-import { MAX_DATE, MIN_DATE } from '../constants/app'
-import { formatDate, formatKZT } from '../utils/format'
+import type { AvailabilityDay, Contractor, DiagnosticStep, MatchResponse, SearchParams } from '../shared/types/match'
+import { MAX_DATE, MIN_DATE } from '../features/search/search.constants'
+import { formatDate, formatKZT } from '../shared/format'
 
 interface Profile {
   id: string
