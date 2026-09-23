@@ -249,7 +249,7 @@ class MatchingTests(unittest.TestCase):
             self.assertEqual(actual, expected)
             statuses.add(actual.status)
         self.assertEqual(statuses, {'matched', 'no_match', 'category_not_found'})
-        self.assertEqual((ROOT / 'frontend/src/types/match.ts').read_text(), contract())
+        self.assertEqual((ROOT / 'frontend/src/shared/types/match.ts').read_text(), contract())
         with TestClient(create_app(snapshot)) as client:
             schema = client.get('/openapi.json').json()
             self.assertIn('/api/match', schema['paths'])

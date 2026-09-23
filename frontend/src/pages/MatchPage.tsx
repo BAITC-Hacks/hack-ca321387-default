@@ -1,13 +1,14 @@
 import { Box, Heading, Text } from '@chakra-ui/react'
 import { useEffect, useRef, useState } from 'react'
-import { AppShell } from '../components/layout/AppShell'
-import { SearchPanel } from '../components/search/SearchPanel'
-import { ResultsSection } from '../components/results/ResultsSection'
-import { ApiError } from '../api/client'
-import { DEFAULT_SEARCH } from '../constants/app'
-import { useMatch } from '../hooks/useMatch'
-import { useMetadata } from '../hooks/useMetadata'
-import type { SearchParams } from '../types/match'
+import { AppShell } from '../shared/layout/AppShell'
+import { SearchForm } from '../features/search/SearchForm'
+import { useMetadata } from '../features/search/useMetadata'
+import { ResultsSection } from '../features/matching/ResultsSection'
+import { useMatch } from '../features/matching/useMatch'
+import { DEFAULT_SEARCH } from '../features/search/search.constants'
+import { useSettings } from '../features/settings/useSettings'
+import { ApiError } from '../shared/api/client'
+import type { SearchParams } from '../shared/types/match'
 
 export function MatchPage() {
   const [draft, setDraft] = useState<SearchParams>({ ...DEFAULT_SEARCH })
@@ -15,6 +16,7 @@ export function MatchPage() {
   const resultsRef = useRef<HTMLDivElement>(null)
   const match = useMatch()
   const metadata = useMetadata()
+  const { isMotionReduced } = useSettings()
 
   const submit = (value: SearchParams) => {
     setSubmitted(value)
@@ -22,13 +24,12 @@ export function MatchPage() {
   }
   useEffect(() => {
     if (match.isSuccess || match.isError) {
-      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      resultsRef.current?.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'start' })
+      resultsRef.current?.scrollIntoView({ behavior: isMotionReduced ? 'auto' : 'smooth', block: 'start' })
     }
-  }, [match.isSuccess, match.isError, match.data, match.error])
+  }, [isMotionReduced, match.isSuccess, match.isError, match.data, match.error])
   const focusField = (field: 'city' | 'category') => {
     const element = document.getElementById(`field-${field}`)
-    element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    element?.scrollIntoView({ behavior: isMotionReduced ? 'auto' : 'smooth', block: 'center' })
     element?.focus({ preventScroll: true })
   }
   const selectDate = (date: string) => {
@@ -49,7 +50,7 @@ export function MatchPage() {
         <p>{metadata.error.message}</p><button className="secondary-button" type="button" onClick={() => void metadata.refetch()}>Повторить загрузку справочников</button>
       </div>}
       {metadata.isPending && <p role="status">Загружаем справочники…</p>}
-      <SearchPanel value={draft} onChange={setDraft} onSubmit={submit} metadata={metadata.data} pending={match.isPending} serverErrors={match.error instanceof ApiError && submitted === draft ? match.error.fields : []} />
+      <SearchForm value={draft} onChange={setDraft} onSubmit={submit} metadata={metadata.data} pending={match.isPending} serverErrors={match.error instanceof ApiError && submitted === draft ? match.error.fields : []} />
       <div ref={resultsRef} className="results-anchor">
         <ResultsSection response={match.data} query={submitted} pending={match.isPending} error={match.isError ? match.error.message : null} onRetry={() => submitted && submit(submitted)} onFocusField={focusField} onDateSelect={selectDate} />
       </div>
