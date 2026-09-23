@@ -2,12 +2,22 @@ services:
   backend:
     build:
       context: ./backend
+    environment:
+      AI_SERVICE_URL: http://ai-service:8100
     ports:
       - "8000:8000"
+    depends_on:
+      - ai-service
+
+  ai-service:
+    build:
+      context: ./services/ai
+    ports:
+      - "8100:8100"
 
   frontend:
     build:
-      context: .
+      context: ./frontend
     ports:
       - "3000:80"
     depends_on:
