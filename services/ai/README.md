@@ -5,6 +5,12 @@ eligibility checks, final score, ordering, evidence and diagnostics. The older
 `/rank`, `/constraints/diagnose` and `/what-if` APIs below remain compatible for
 legacy callers and are not in the product request path.
 
+An optional separate `app.local_explainer:app` process serves `POST /explain`
+for already-ranked contractor evidence. It uses `Qwen/Qwen2.5-0.5B-Instruct`
+from Hugging Face, loaded on startup, and never changes filters or scores. Run
+it with the `local-llm` Compose profile; the default AI image stays lightweight.
+The backend keeps OpenAI/template fallbacks if this service fails.
+
 ## Product text API
 
 `POST /similarity` accepts `{"query":"Ведущий корпоратив","documents":[{"id":"HK-1","text":"Описание"}]}`

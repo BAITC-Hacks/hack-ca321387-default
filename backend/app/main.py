@@ -11,6 +11,10 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from .catalog import Catalog, CatalogError, DEFAULT_DATASET, UnknownOption, load_catalog
+from .explanations import (
+    ExplanationProvider, FallbackExplanationProvider, LocalExplanationProvider,
+    OpenAIExplanationProvider,
+)
 from .matching import MatchingService
 from .feature_schemas import DebugMatchResponse, DetailedMatchResponse
 from .discovery import (
@@ -38,7 +42,25 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
             if provider is None and mode == 'tfidf':
                 provider = HttpSemanticProvider(os.getenv('AI_SERVICE_URL', 'http://localhost:8100'),
                                                 float(os.getenv('AI_TIMEOUT_SECONDS', '2')))
-            application.state.matching = MatchingService(snapshot, provider)
+            explanation_mode = os.getenv('EXPLANATION_MODE', 'auto').strip().lower()
+            if explanation_mode not in ('auto', 'local', 'openai', 'template'):
+                raise ValueError('EXPLANATION_MODE must be auto, local, openai or template')
+            key = os.getenv('OPENAI_API_KEY', '').strip()
+            openai_provider = OpenAIExplanationProvider(
+                key, os.getenv('OPENAI_MODEL', 'gpt-4.1-mini'),
+                float(os.getenv('OPENAI_TIMEOUT_SECONDS', '8')),
+            ) if key else None
+            explanation_provider: ExplanationProvider | None = None
+            if explanation_mode == 'local':
+                local_provider = LocalExplanationProvider(
+                    os.getenv('LOCAL_EXPLANATION_URL', 'http://localhost:8200'),
+                    float(os.getenv('LOCAL_EXPLANATION_TIMEOUT_SECONDS', '30')),
+                )
+                explanation_provider = (FallbackExplanationProvider(local_provider, openai_provider)
+                                        if openai_provider else local_provider)
+            elif explanation_mode in ('auto', 'openai'):
+                explanation_provider = openai_provider
+            application.state.matching = MatchingService(snapshot, provider, explanation_provider)
         except CatalogError:
             logger.exception('Catalog initialization failed')
             application.state.matching = None

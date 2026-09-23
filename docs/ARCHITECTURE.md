@@ -10,6 +10,8 @@ React form / TanStack Query
   -> backend/app/catalog.py       one validated, immutable CSV snapshot
   -> backend/app/rules.py         hard checks -> structured facts / filter funnel
   -> backend/app/matching.py      alternatives, score, top 3, grounded explanation
+  -> backend/app/explanations.py  optional OpenAI wording of verified TOP-3 facts
+  -> services/ai/app/local_explainer.py  optional Hugging Face wording (separate process)
   -> backend/app/semantic.py      one bounded batch HTTP call
   -> services/ai POST /similarity cached deterministic TF-IDF + lexical signals
 ```
@@ -17,7 +19,7 @@ React form / TanStack Query
 `backend/app/main.py` is the HTTP/configuration boundary. Normal `def` route
 handlers run blocking work in FastAPI's thread pool; the event loop is not used
 for the synchronous AI call. This follows [FastAPI's execution model](https://fastapi.tiangolo.com/async/).
-No database, queue, external LLM or provider secret is required.
+No database, queue, external LLM or provider secret is required for matching.
 
 `rules.evaluate` implements each criterion once. The resulting structured checks
 are used by the sequential funnel and copied directly into result evidence.
@@ -166,9 +168,21 @@ per-candidate network request, model load, DB query or result cache.
 outage, text signals become null and only budget/applicable duration are used.
 `fallback_used` is true for outages; intentional `SEMANTIC_MODE=disabled` is
 reported separately. The mode is appended to `ranking_version`, so identical
-request + data snapshot + algorithm/mode gives identical cards/scores/evidence.
+request + data snapshot + algorithm/mode gives identical IDs/scores/evidence.
 Changes in dependency availability are explicitly changes in algorithm mode.
-No embedding-model or LLM result is claimed by this baseline.
+No embedding-model result is claimed by this baseline.
+
+`EXPLANATION_MODE=auto` (default) uses OpenAI when `OPENAI_API_KEY` is configured,
+otherwise the template. `local` calls the optional Hugging Face service first,
+then OpenAI when a key exists, then the template. `openai` and `template` force
+those modes. Wording runs **after** sorting, for at most three cards. Only IDs
+and `matched: true` evidence reasons are sent; raw contractor descriptions and
+API keys never reach the browser. The generated paragraph replaces only
+`explanation`. The OpenAI request uses structured JSON output and `store: false`.
+An absent key, timeout, refusal, malformed output, or network failure retains
+the next available explanation source.
+LLM prose can vary between requests and should be checked against the visible
+evidence; it never changes eligibility, score, order, or the evidence ledger.
 
 ## Frontend integration and fixtures
 

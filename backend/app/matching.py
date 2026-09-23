@@ -6,6 +6,7 @@ from uuid import uuid4
 from typing import Literal
 
 from .catalog import Catalog
+from .explanations import ExplanationProvider
 from .feature_schemas import DebugMatchResponse, DetailedMatchResponse, MatchTrace, TraceNotice
 from .match_details import ScoreCalculation, build_details
 from .trace import TraceRecorder, measured
@@ -76,9 +77,11 @@ class MatchExecution:
 
 
 class MatchingService:
-    def __init__(self, catalog: Catalog, semantic: SemanticProvider | None = None):
+    def __init__(self, catalog: Catalog, semantic: SemanticProvider | None = None,
+                 explanations: ExplanationProvider | None = None):
         self.catalog = catalog
         self.semantic = semantic
+        self.explanations = explanations
 
     def match(self, request: SearchParams) -> MatchResponse:
         return self._execute(request).response
@@ -166,6 +169,17 @@ class MatchingService:
                     if calculation.values.semantic is None or calculation.values.lexical is None:
                         recorder.notices.append(TraceNotice(code='text_score_missing', candidate_id=card.id,
                                                            message='Текстовый сервис не предоставил один или оба компонента; отсутствующие значения исключены из score.'))
+        if self.explanations is not None and ranked:
+            with measured(recorder, 'explanations.openai'):
+                try:
+                    generated = self.explanations.explain(ranked[:3])
+                    for card in ranked[:3]:
+                        if generated.get(card.id):
+                            card.explanation = generated[card.id]
+                except Exception as exc:
+                    # Wording is optional and must never change matching or HTTP status.
+                    import logging
+                    logging.getLogger(__name__).warning('Explanation provider failed: %s', type(exc).__name__)
         with measured(recorder, 'response.assemble'):
             response = MatchResponse(
                 status=status, results=ranked[:3], total_eligible=len(pool), availability=availability, model_info=model,
