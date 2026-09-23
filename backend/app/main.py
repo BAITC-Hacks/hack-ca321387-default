@@ -3,6 +3,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from collections.abc import AsyncIterator
+from typing import cast
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -11,6 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from .catalog import Catalog, CatalogError, DEFAULT_DATASET, UnknownOption, load_catalog
+from .chat import ChatRequest, ChatResponse, ChatService, ChatUnavailable
 from .explanations import (
     ExplanationProvider, FallbackExplanationProvider, LocalExplanationProvider,
     OpenAIExplanationProvider,
@@ -61,6 +63,12 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
             elif explanation_mode in ('auto', 'openai'):
                 explanation_provider = openai_provider
             application.state.matching = MatchingService(snapshot, provider, explanation_provider)
+            application.state.chat = ChatService(
+                key, os.getenv('OPENAI_MODEL', 'gpt-4.1-mini'),
+                float(os.getenv('OPENAI_CHAT_TIMEOUT_SECONDS', '12')),
+                os.getenv('LOCAL_EXPLANATION_URL', 'http://localhost:8200'),
+                float(os.getenv('LOCAL_CHAT_TIMEOUT_SECONDS', '60')),
+            )
         except CatalogError:
             logger.exception('Catalog initialization failed')
             application.state.matching = None
@@ -141,6 +149,13 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
     def match(query: SearchParams) -> MatchResponse:
         # Sync handler runs in FastAPI's thread pool, including the bounded AI call.
         return service().match(query)
+
+    @app.post('/api/chat', response_model=ChatResponse, responses=errors)
+    def chat(query: ChatRequest) -> ChatResponse | JSONResponse:
+        try:
+            return cast(ChatService, app.state.chat).reply(query)
+        except ChatUnavailable:
+            return error(503, 'chat_unavailable', 'AI-ассистент сейчас недоступен. Проверьте OpenAI API key или запустите локальную модель.')
 
     @app.post('/api/match/details', response_model=DetailedMatchResponse, responses=errors)
     def match_details(query: SearchParams) -> DetailedMatchResponse:

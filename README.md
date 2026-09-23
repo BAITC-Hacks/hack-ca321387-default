@@ -62,6 +62,13 @@ OpenAI when a key is configured, then the deterministic text. To use only
 OpenAI, set `EXPLANATION_MODE=openai`; `template` disables model wording.
 Ordinary `docker compose up --build` does not build or start the local model.
 
+The assistant chat uses `POST /api/chat`: OpenAI is tried first when
+`OPENAI_API_KEY` is configured, then the optional local Qwen service. Chat does
+not change deterministic matching and does not receive contractor results; it
+only knows the selected search fields and the current conversation. Without a
+working provider it reports a service error instead of a canned response.
+Run `docker compose --profile local-llm up --build` to enable the local fallback.
+
 Frontend env (`frontend/.env.example`): `VITE_API_URL=/api`,
 `VITE_USE_MOCK_API=false`. Production refuses mock mode. Optional dev mock mode
 uses a finite set of recorded backend responses, documented in the architecture;

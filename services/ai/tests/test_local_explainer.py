@@ -16,6 +16,21 @@ class FakeGenerator:
 
 
 class LocalExplainerTests(unittest.TestCase):
+    def test_chat_uses_supplied_turns(self) -> None:
+        class ChatGenerator(FakeGenerator):
+            def generate_chat(self, messages: list[dict[str, str]], context: dict[str, str]) -> str:
+                return f"Ответ для {context.get('city', '')}: {messages[-1]['content']}"
+
+        with TestClient(create_app(ChatGenerator())) as client:
+            response = client.post('/chat', json={
+                'messages': [{'role': 'user', 'content': 'Помоги'}],
+                'context': {'city': 'Алматы'},
+            })
+            invalid = client.post('/chat', json={'messages': [{'role': 'assistant', 'content': 'Привет'}]})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Алматы', response.json()['answer'])
+        self.assertEqual(invalid.status_code, 422)
+
     def test_explain_preserves_ids_and_only_uses_supplied_facts(self) -> None:
         generator = FakeGenerator()
         with TestClient(create_app(generator)) as client:

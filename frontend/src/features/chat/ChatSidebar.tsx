@@ -11,7 +11,7 @@ export function ChatSidebar({ open, onOpenChange, context }: {
   onOpenChange: (open: boolean) => void
   context: ChatContext
 }) {
-  const { messages, pending, send, retry } = useChat()
+  const { messages, pending, send, retry } = useChat(context)
   const [draft, setDraft] = useState("")
   const chooseSuggestion = useCallback((prompt: string) => setDraft(prompt), [])
   const searchSummary = [context.city, context.eventType, context.category, formatDate(context.date, true)].filter(Boolean).join(' · ')
