@@ -49,4 +49,4 @@ def contract() -> str:
 
 
 if __name__ == '__main__':
-    (ROOT / 'frontend/src/types/match.ts').write_text(contract())
+    (ROOT / 'frontend/src/shared/types/match.ts').write_text(contract())

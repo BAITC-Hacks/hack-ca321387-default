@@ -1,24 +1,67 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #0b0d11;
-  color: #f1f3f6;
+  --el-bg-canvas: #0b0d11;
+  --el-bg-canvas-top: #10141a;
+  --el-bg-surface: #151920;
+  --el-bg-elevated: #181d25;
+  --el-bg-glass: rgba(25, 29, 36, 0.88);
+  --el-bg-control: #11151b;
+  --el-bg-control-hover: #171b22;
+  --el-bg-subtle: rgba(255, 255, 255, 0.035);
+  --el-radial-illumination: rgba(119, 158, 210, 0.12);
+  --el-text-primary: #f1f3f6;
+  --el-text-secondary: #a5aab4;
+  --el-text-muted: #747b87;
+  --el-text-faint: #68717e;
+  --el-text-soft: #c2c9d2;
+  --el-border-default: rgba(255, 255, 255, 0.09);
+  --el-border-strong: rgba(255, 255, 255, 0.16);
+  --el-accent-primary: #8abaff;
+  --el-accent-hover: #a8cdff;
+  --el-accent-strong: #bed9ff;
+  --el-accent-soft: rgba(138, 186, 255, 0.09);
+  --el-accent-border: rgba(154, 193, 244, 0.16);
+  --el-accent-contrast: #111c2a;
+  --el-status-success: #8ed6b6;
+  --el-status-success-soft: rgba(142, 214, 182, 0.08);
+  --el-status-warning: #e4be82;
+  --el-status-warning-soft: rgba(231, 180, 135, 0.075);
+  --el-status-error: #ec9c9f;
+  --el-status-error-soft: rgba(236, 156, 159, 0.09);
+  --el-glass-highlight: rgba(255, 255, 255, 0.06);
+  --el-shadow-panel: 0 22px 70px rgba(0, 0, 0, 0.22);
+  --el-shadow-card: 0 16px 40px rgba(0, 0, 0, 0.14);
+  --el-shadow-dialog: 0 28px 90px rgba(0, 0, 0, 0.5);
+  --el-motion-fast: 150ms;
+  --el-motion-normal: 200ms;
+  --el-motion-slow: 360ms;
+  background: var(--el-bg-canvas);
+  color: var(--el-text-primary);
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; }
+html { min-width: 320px; scroll-behavior: smooth; }
+body { min-width: 320px; margin: 0; background: var(--el-bg-canvas); color: var(--el-text-primary); transition: background-color var(--el-motion-normal), color var(--el-motion-normal); }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
-::selection { background: rgba(138, 186, 255, .28); color: #fff; }
-:focus-visible { outline: 2px solid #8abaff; outline-offset: 3px; }
+::selection { color: var(--el-text-primary); background: var(--el-accent-soft); }
+:focus-visible { outline: 2px solid var(--el-accent-primary); outline-offset: 3px; }
+
+:root[data-motion="reduced"] { --el-motion-fast: 1ms; --el-motion-normal: 1ms; --el-motion-slow: 1ms; }
+:root[data-motion="reduced"] { scroll-behavior: auto; }
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  :root:not([data-motion="full"]) { --el-motion-fast: 1ms; --el-motion-normal: 1ms; --el-motion-slow: 1ms; }
+  :root:not([data-motion="full"]) *,
+  :root:not([data-motion="full"]) *::before,
+  :root:not([data-motion="full"]) *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

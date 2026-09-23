@@ -4,7 +4,7 @@
 
 ```text
 React form / TanStack Query
-  -> frontend/src/api (HTTP + errors; preserves order, nulls and dates)
+  -> frontend/src/shared/api (HTTP + errors; preserves order, nulls and dates)
   -> POST /api/match
   -> backend/app/schemas.py       validation / OpenAPI
   -> backend/app/catalog.py       one validated, immutable CSV snapshot

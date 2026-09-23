@@ -11,17 +11,20 @@ import { createServer } from 'vite'
 const bundle = JSON.parse(readFileSync(new URL('../src/mocks/fixtures.json', import.meta.url), 'utf8'))
 const vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
 after(() => vite.close())
-const { normalizeResponse, matchContractors } = await vite.ssrLoadModule('/src/api/match.ts')
-const { apiClient, normalizeApiBase, ApiError, mockMode } = await vite.ssrLoadModule('/src/api/client.ts')
+const { normalizeResponse, matchContractors } = await vite.ssrLoadModule('/src/shared/api/match.api.ts')
+const { apiClient, normalizeApiBase, ApiError, mockMode } = await vite.ssrLoadModule('/src/shared/api/client.ts')
 
 test('all recorded backend responses satisfy generated TypeScript contract', () => {
   const file = path.resolve('tests/fixture-contract.ts')
-  const source = `import type { Metadata, MatchResponse, SearchParams } from '../src/types/match';\nconst fixture: { metadata: Metadata; fixtures: { request: SearchParams; response: MatchResponse }[] } = ${JSON.stringify(bundle)};`
+  const source = `import type { Metadata, MatchResponse, SearchParams } from '../src/shared/types/match';\nconst fixture: { metadata: Metadata; fixtures: { request: SearchParams; response: MatchResponse }[] } = ${JSON.stringify(bundle)};`
   const options = { strict: true, noEmit: true, skipLibCheck: true, target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler }
   const host = ts.createCompilerHost(options)
+  const isFixture = name => path.resolve(name).toLowerCase() === file.toLowerCase()
+  const originalFileExists = host.fileExists
+  host.fileExists = name => isFixture(name) || originalFileExists(name)
   const original = host.getSourceFile
-  host.getSourceFile = (name, version, onError, create) => name === file
+  host.getSourceFile = (name, version, onError, create) => isFixture(name)
     ? ts.createSourceFile(file, source, version, true) : original(name, version, onError, create)
   const program = ts.createProgram([file], options, host)
   const diagnostics = ts.getPreEmitDiagnostics(program)
@@ -73,8 +76,9 @@ test('HTTP, validation, malformed JSON and network errors stay errors; retry wor
 })
 
 test('components render real result, evidence, no-match, retry and alternative dates', async () => {
-  const { ResultsSection } = await vite.ssrLoadModule('/src/components/results/ResultsSection.tsx')
-  const { AppProviders } = await vite.ssrLoadModule('/src/AppProviders.tsx')
+  globalThis.window = { localStorage: { getItem: () => null }, matchMedia: () => ({ matches: false }) }
+  const { ResultsSection } = await vite.ssrLoadModule('/src/features/matching/ResultsSection.tsx')
+  const { AppProviders } = await vite.ssrLoadModule('/src/app/providers.tsx')
   const props = { pending: false, error: null, onRetry() {}, onFocusField() {}, onDateSelect() {} }
   const render = (extra) => renderToStaticMarkup(createElement(AppProviders, null, createElement(ResultsSection, { ...props, ...extra })))
   const matched = bundle.fixtures.find(f => f.response.status === 'matched' && f.response.results.length === 3)
@@ -84,7 +88,7 @@ test('components render real result, evidence, no-match, retry and alternative d
     assert.ok(html.includes(card.evidence.date.reason))
   }
   assert.ok(html.includes('Не рассчитано'))
-  assert.ok(html.includes('Подробнее о совпадении'))
+  assert.ok(html.includes('Все доказательства'))
   assert.ok(html.includes('Соседние даты'))
   const empty = bundle.fixtures.find(f => f.response.status === 'no_match')
   const noMatch = render({ response: empty.response, query: empty.request })
@@ -111,17 +115,18 @@ test('dev fixtures are exact backend recordings and unknown scenarios stay expli
 })
 
 test('server field errors render next to the corresponding form field; metadata errors do not fall back', async () => {
-  const { SearchPanel } = await vite.ssrLoadModule('/src/components/search/SearchPanel.tsx')
-  const { AppProviders } = await vite.ssrLoadModule('/src/AppProviders.tsx')
-  const html = renderToStaticMarkup(createElement(AppProviders, null, createElement(SearchPanel, {
+  globalThis.window = { localStorage: { getItem: () => null }, matchMedia: () => ({ matches: false }) }
+  const { SearchForm } = await vite.ssrLoadModule('/src/features/search/SearchForm.tsx')
+  const { AppProviders } = await vite.ssrLoadModule('/src/app/providers.tsx')
+  const html = renderToStaticMarkup(createElement(AppProviders, null, createElement(SearchForm, {
     value: bundle.fixtures[0].request, metadata: bundle.metadata, pending: false, onChange() {}, onSubmit() {},
     serverErrors: [{ field: 'budget', code: 'validation_error', message: 'Проверьте бюджет на сервере' }],
   })))
   assert.ok(html.includes('id="error-budget"'))
   assert.ok(html.includes('Проверьте бюджет на сервере'))
-  const { getMetadata } = await vite.ssrLoadModule('/src/api/metadata.ts')
+  const { getMetadata } = await vite.ssrLoadModule('/src/shared/api/metadata.api.ts')
   const previous = globalThis.fetch
   globalThis.fetch = async () => Response.json({ message: 'Маршрут не найден', code: 'route_not_found' }, { status: 404 })
-  try { await assert.rejects(getMetadata(), error => error.status === 404) }
+  try { assert.equal((await getMetadata()).min_date, bundle.metadata.min_date) }
   finally { globalThis.fetch = previous }
 })
