@@ -2,6 +2,7 @@ import { Box, Heading, Text } from '@chakra-ui/react'
 import { useEffect, useRef, useState } from 'react'
 import { AppShell } from '../shared/layout/AppShell'
 import { SearchForm } from '../features/search/SearchForm'
+import { DemoPresets } from '../features/search/DemoPresets'
 import { useMetadata } from '../features/search/useMetadata'
 import { ResultsSection } from '../features/matching/ResultsSection'
 import { useMatch } from '../features/matching/useMatch'
@@ -50,6 +51,7 @@ export function MatchPage() {
         <p>{metadata.error.message}</p><button className="secondary-button" type="button" onClick={() => void metadata.refetch()}>Повторить загрузку справочников</button>
       </div>}
       {metadata.isPending && <p role="status">Загружаем справочники…</p>}
+      <DemoPresets pending={match.isPending} onSelect={(query) => { setDraft(query); submit(query) }} />
       <SearchForm value={draft} onChange={setDraft} onSubmit={submit} metadata={metadata.data} pending={match.isPending} serverErrors={match.error instanceof ApiError && submitted === draft ? match.error.fields : []} />
       <div ref={resultsRef} className="results-anchor">
         <ResultsSection response={match.data} query={submitted} pending={match.isPending} error={match.isError ? match.error.message : null} onRetry={() => submitted && submit(submitted)} onFocusField={focusField} onDateSelect={selectDate} />

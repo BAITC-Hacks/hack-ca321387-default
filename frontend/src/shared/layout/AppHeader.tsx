@@ -13,7 +13,7 @@ export function AppHeader({ chatContext }: { chatContext: ChatContext }) {
   return (
     <>
       <header className="site-header liquid-glass">
-        <Flex maxW="1280px" mx="auto" px={{ base: 5, md: 8 }} align="center" justify="space-between" minH="72px" gap={4}>
+        <Flex className="site-header-inner" px={{ base: 4, md: 6 }} align="center" justify="space-between" minH={{ base: '62px', md: '68px' }} gap={4}>
           <Flex align="center" gap="11px" minW={0}>
             <Box className="brand-mark" aria-hidden="true"><span /></Box>
             <Text className="brand-name">EventLens</Text>

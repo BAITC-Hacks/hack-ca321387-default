@@ -5,7 +5,9 @@ import { SettingsProvider } from '../features/settings/SettingsProvider'
 import { system } from './theme'
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient())
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: { queries: { gcTime: typeof document === 'undefined' ? Infinity : 5 * 60_000 } },
+  }))
 
   return (
     <ChakraProvider value={system}>

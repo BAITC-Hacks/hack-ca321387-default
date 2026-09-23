@@ -2,6 +2,7 @@ import type { MatchResponse, SearchParams } from '../../shared/types/match'
 import { AvailabilityDates } from '../diagnostics/AvailabilityDates'
 import { ConstraintDoctor } from '../diagnostics/ConstraintDoctor'
 import { ContractorCard } from './ContractorCard'
+import { RankingDetails } from './RankingDetails'
 
 interface ResultsSectionProps {
   response?: MatchResponse
@@ -108,8 +109,10 @@ export function ResultsSection({ response, query, pending, error, onRetry, onFoc
         </div>
       )}
 
+      {matched && query && <RankingDetails query={query} dataVersion={response.model_info.data_version} />}
+
       {!categoryMissing && response.availability && query && (
-        <AvailabilityDates days={response.availability} selected={query.date} pending={pending} onSelect={onDateSelect} />
+        <AvailabilityDates days={response.availability} selected={query.date} pending={pending} onSelect={onDateSelect} query={query} />
       )}
     </section>
   )

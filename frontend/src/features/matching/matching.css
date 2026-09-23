@@ -1,4 +1,4 @@
-.results-anchor { scroll-margin-top: 32px; }
+.results-anchor { scroll-margin-top: 105px; }
 .results-section { margin-top: 65px; }
 .results-section h2 { margin: 11px 0 8px; font-size: clamp(24px,2.7vw,34px); font-weight: 570; letter-spacing: -.05em; }
 .results-heading { margin-bottom: 24px; }
@@ -52,6 +52,23 @@
 .all-evidence strong { color: var(--el-text-primary); font-weight: 570; }
 .all-evidence small { color: var(--el-text-muted); }
 .date-navigator { margin-top: 34px; padding: 26px 0 0; border-top: 1px solid var(--el-border-default); }
+.date-expand { margin-top: 15px; }
+.date-recommendation { margin: 11px 0 0; color: var(--el-status-success); font-size: 13px; }
+.ranking-details { margin-top: 25px; }
+.ranking-details-body { margin-top: 15px; padding: 22px; border: 1px solid var(--el-border-default); border-radius: 17px; background: var(--el-bg-surface); }
+.ranking-details-body h3 { margin: 0 0 7px; font-size: 20px; font-weight: 580; }
+.ranking-details-body > p { color: var(--el-text-secondary); font-size: 13px; line-height: 1.55; }
+.ranking-details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(225px, 1fr)); gap: 12px; margin-top: 20px; }
+.ranking-detail { padding: 15px; border: 1px solid var(--el-border-default); border-radius: 13px; background: var(--el-bg-glass); }
+.ranking-detail h4 { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.ranking-detail h4 span { color: var(--el-accent-primary); white-space: nowrap; }
+.ranking-component { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; padding: 9px 0; border-top: 1px solid var(--el-border-default); font-size: 12px; }
+.ranking-component strong { font-weight: 550; }
+.ranking-component > span { color: var(--el-accent-primary); }
+.ranking-component p { grid-column: 1 / -1; margin: 0; color: var(--el-text-muted); line-height: 1.4; }
+.ranking-comparison { margin-top: 18px; }
+.ranking-comparison h4 { margin: 0 0 8px; font-size: 14px; }
+.ranking-comparison p, .ranking-price-note { margin: 7px 0; color: var(--el-text-secondary); font-size: 12px; line-height: 1.5; }
 .date-heading h3 { margin-top: 8px; font-size: 21px; font-weight: 560; letter-spacing: -.035em; }
 .date-heading p { margin-top: 5px; color: var(--el-text-muted); font-size: 13px; }
 .date-strip { display: flex; gap: 10px; overflow-x: auto; padding: 19px 2px 5px; scrollbar-color: var(--el-border-strong) transparent; }

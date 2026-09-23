@@ -89,7 +89,7 @@ test('components render real result, evidence, no-match, retry and alternative d
   }
   assert.ok(html.includes('Не рассчитано'))
   assert.ok(html.includes('Все доказательства'))
-  assert.ok(html.includes('Соседние даты'))
+  assert.ok(html.includes('Доступность по датам'))
   const empty = bundle.fixtures.find(f => f.response.status === 'no_match')
   const noMatch = render({ response: empty.response, query: empty.request })
   assert.ok(noMatch.includes('Что ограничило поиск'))

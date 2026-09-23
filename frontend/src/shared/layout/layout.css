@@ -1,7 +1,9 @@
-.app-shell { position: relative; isolation: isolate; min-height: 100vh; overflow: clip; background: var(--el-bg-canvas); color: var(--el-text-primary); transition: background-color var(--el-motion-normal), color var(--el-motion-normal); }
+.app-shell { position: relative; isolation: isolate; min-height: 100vh; overflow: clip; padding-top: 90px; background: var(--el-bg-canvas); color: var(--el-text-primary); transition: background-color var(--el-motion-normal), color var(--el-motion-normal); }
 .app-shell::before { position: absolute; z-index: -1; inset: 0 0 auto; height: 670px; content: ''; pointer-events: none; background: radial-gradient(ellipse 52% 48% at 50% -10%, var(--el-radial-illumination), transparent 80%), linear-gradient(180deg, var(--el-bg-canvas-top) 0%, var(--el-bg-canvas) 100%); }
-.site-header { position: sticky; z-index: 20; top: 0; }
-.site-header.liquid-glass { border: 0; border-bottom: 1px solid var(--el-border-default); border-radius: 0; }
+.site-header.liquid-glass { position: fixed; z-index: 40; top: max(12px, env(safe-area-inset-top)); left: 50%; width: min(1180px, calc(100vw - 32px)); transform: translateX(-50%); border: 1px solid var(--el-border-glass); border-radius: 20px; background: color-mix(in srgb, var(--el-bg-glass) 68%, transparent); box-shadow: inset 0 1px 1px color-mix(in srgb, var(--el-glass-highlight) 22%, transparent); -webkit-backdrop-filter: blur(44px) saturate(165%); backdrop-filter: blur(44px) saturate(165%); }
+.site-header.liquid-glass::before { opacity: .75; background: linear-gradient(155deg, var(--el-glass-refraction), transparent 42%), linear-gradient(0deg, transparent 65%, var(--el-glass-highlight)); }
+.site-header-inner { width: 100%; }
+.site-header .icon-button { box-shadow: none; }
 
 .brand-mark { width: 27px; height: 27px; display: grid; flex: 0 0 27px; place-items: center; border: 1px solid color-mix(in srgb, var(--el-accent-primary) 70%, transparent); border-radius: 9px; transform: rotate(-9deg); background: var(--el-accent-soft); }
 .brand-mark span { width: 10px; height: 10px; border: 2px solid var(--el-accent-primary); border-radius: 50%; box-shadow: 0 0 0 4px var(--el-accent-soft); }
@@ -48,6 +50,8 @@
 .how-list p { margin: 6px 0 0; color: var(--el-text-secondary); font-size: 14px; line-height: 1.55; }
 @keyframes rise-in { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 600px) {
+  .app-shell { padding-top: 80px; }
+  .site-header.liquid-glass { top: max(8px, env(safe-area-inset-top)); width: calc(100vw - 16px); border-radius: 16px; }
   .brand-caption, .brand-divider, .how-button { display: none; }
   .hero { padding: 48px 0 35px; }
   .hero h1 { letter-spacing: -.055em; }
