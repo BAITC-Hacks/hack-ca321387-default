@@ -97,3 +97,5 @@
   .date-tile { flex-basis: 118px; }
   .doctor-panel { padding: 22px; }
 }
+
+.evidence-indicator.is-not-applicable { background: #89929b; box-shadow: none; }

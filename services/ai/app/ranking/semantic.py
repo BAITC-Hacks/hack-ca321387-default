@@ -1,3 +1,4 @@
+from functools import lru_cache
 import math
 import re
 from collections import Counter
@@ -55,3 +56,22 @@ def tfidf_cosine(query: str, documents: list[str]) -> list[float]:
 
 def canonical_query(category: str, event_type: str, preferences: str) -> str:
     return " ".join(part.strip() for part in (category, event_type, preferences) if part.strip())
+
+
+def lexical_overlap(query: str, description: str) -> float:
+    query_terms = set(query.casefold().split())
+    document_terms = set(description.casefold().split())
+    if not query_terms or not document_terms:
+        return 0.0
+    return len(query_terms & document_terms) / len(query_terms | document_terms)
+
+
+# The key contains the complete immutable corpus and query; data changes invalidate it.
+# Bounded in-process memoization for the small demo dataset, no infrastructure needed.
+
+
+@lru_cache(maxsize=128)
+def cached_similarity(query: str, documents: tuple[str, ...]) -> tuple[tuple[float | None, float | None], ...]:
+    semantic = tfidf_cosine(query, list(documents))
+    return tuple((score, lexical_overlap(query, text)) if tokenize(text) else (None, None)
+                 for text, score in zip(documents, semantic))
