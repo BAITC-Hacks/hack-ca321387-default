@@ -1,8 +1,8 @@
 import { Box, Button, Flex, Heading, Input, Text } from '@chakra-ui/react'
 import { useState, type FormEvent } from 'react'
 import { GlassPanel } from '../ui/GlassPanel'
-import type { Metadata, SearchParams } from '../../types/match'
-import { FALLBACK_METADATA } from '../../constants/app'
+import type { FieldError, Metadata, SearchParams } from '../../types/match'
+import { MAX_DATE, MIN_DATE } from '../../constants/app'
 import { formatKZT } from '../../utils/format'
 
 type Errors = Partial<Record<keyof SearchParams, string>>
@@ -13,24 +13,32 @@ interface Props {
   onSubmit: (value: SearchParams) => void
   metadata?: Metadata
   pending: boolean
+  serverErrors?: FieldError[]
 }
 
-export function SearchPanel({ value, onChange, onSubmit, metadata, pending }: Props) {
-  const [errors, setErrors] = useState<Errors>({})
-  const options = metadata || FALLBACK_METADATA
+export function SearchPanel({ value, onChange, onSubmit, metadata, pending, serverErrors = [] }: Props) {
+  const [localErrors, setErrors] = useState<Errors>({})
+  const errors = { ...localErrors }
+  for (const field of ['city', 'date', 'event_type', 'category', 'budget', 'language', 'duration'] as const) {
+    const message = serverErrors.find((issue) => issue.field === field)?.message
+    if (message) errors[field] = message
+  }
+  const options = metadata || { cities: [], categories: [], event_types: [], languages: [],
+    min_date: MIN_DATE, max_date: MAX_DATE, max_budget: 100_000_000, min_duration: 1, max_duration: 12 }
   const update = <K extends keyof SearchParams>(key: K, next: SearchParams[K]) => {
     onChange({ ...value, [key]: next })
     setErrors((current) => ({ ...current, [key]: undefined }))
   }
   const submit = (event: FormEvent) => {
     event.preventDefault()
+    if (!metadata) return
     const next: Errors = {}
     if (!value.city) next.city = 'Выберите город.'
     if (!value.date || value.date < options.min_date || value.date > options.max_date) next.date = 'Выберите дату в диапазоне каталога.'
     if (!value.event_type) next.event_type = 'Выберите тип мероприятия.'
     if (!value.category) next.category = 'Выберите категорию.'
-    if (!Number.isFinite(value.budget) || value.budget <= 0 || value.budget > 100_000_000) next.budget = 'Укажите бюджет от 1 до 100 000 000 ₸.'
-    if (value.duration !== undefined && (value.duration <= 0 || value.duration > 12)) next.duration = 'Выберите длительность до 12 часов.'
+    if (!Number.isFinite(value.budget) || value.budget <= 0 || value.budget > options.max_budget) next.budget = `Укажите положительный бюджет до ${formatKZT(options.max_budget)}.`
+    if (value.duration != null && (!Number.isInteger(value.duration) || value.duration < options.min_duration || value.duration > options.max_duration)) next.duration = 'Выберите длительность до 12 часов.'
     setErrors(next)
     const first = Object.keys(next)[0]
     if (first) {
@@ -81,22 +89,23 @@ export function SearchPanel({ value, onChange, onSubmit, metadata, pending }: Pr
             {errors.budget && <small id="error-budget" className="field-error">{errors.budget}</small>}
           </label>
           <label className="field" htmlFor="field-language"><span>Язык</span>
-            <select id="field-language" className="control" value={value.language || ''} onChange={(e) => update('language', e.target.value || undefined)}>
+            <select id="field-language" className="control" value={value.language || ''} onChange={(e) => update('language', e.target.value || null)} aria-invalid={!!errors.language} aria-describedby={errors.language ? 'error-language' : undefined}>
               <option value="">Не важно</option>
               {options.languages.map((item) => <option key={item} value={item}>{item[0].toLocaleUpperCase('ru-RU') + item.slice(1)}</option>)}
             </select>
+            {errors.language && <small id="error-language" className="field-error">{errors.language}</small>}
           </label>
           <label className="field" htmlFor="field-duration"><span>Длительность</span>
-            <select id="field-duration" className="control" value={value.duration || ''} onChange={(e) => update('duration', e.target.value ? Number(e.target.value) : undefined)} aria-invalid={!!errors.duration}>
+            <select id="field-duration" className="control" value={value.duration || ''} onChange={(e) => update('duration', e.target.value ? Number(e.target.value) : null)} aria-invalid={!!errors.duration}>
               <option value="">Не важно</option>
-              {Array.from({ length: 12 }, (_, index) => index + 1).map((hours) => <option key={hours} value={hours}>{hours} ч</option>)}
+              {Array.from({ length: options.max_duration }, (_, index) => index + 1).map((hours) => <option key={hours} value={hours}>{hours} ч</option>)}
             </select>
             {errors.duration && <small className="field-error">{errors.duration}</small>}
           </label>
         </div>
         <Flex className="search-actions" align="center" justify="space-between" gap={4} wrap="wrap">
           <Text>Мы покажем до трёх доступных вариантов и объясним выбор.</Text>
-          <Button type="submit" className="primary-button" disabled={pending} aria-busy={pending}>
+          <Button type="submit" className="primary-button" disabled={pending || !metadata} aria-busy={pending}>
             {pending ? 'Подбираем…' : 'Найти подрядчиков'}
           </Button>
         </Flex>

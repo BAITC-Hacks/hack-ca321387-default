@@ -1,14 +1,12 @@
 services:
   backend:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       AI_SERVICE_URL: http://ai-service:8100
     ports:
       - "8000:8000"
-    depends_on:
-      ai-service:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
       interval: 10s
@@ -32,7 +30,7 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_USE_MOCK_API: "true"
+        VITE_USE_MOCK_API: "false"
         VITE_API_URL: /api
     ports:
       - "3000:80"
