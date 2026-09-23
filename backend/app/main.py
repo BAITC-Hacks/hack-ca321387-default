@@ -12,6 +12,11 @@ from starlette.exceptions import HTTPException
 
 from .catalog import Catalog, CatalogError, DEFAULT_DATASET, UnknownOption, load_catalog
 from .matching import MatchingService
+from .feature_schemas import DebugMatchResponse, DetailedMatchResponse
+from .discovery import (
+    AvailabilityRequest, AvailabilityResponse, DemoPresetsResponse,
+    build_demo_presets, find_availability,
+)
 from .schemas import ErrorResponse, FieldError, MatchResponse, Metadata, SearchParams
 from .semantic import HttpSemanticProvider, SemanticProvider
 
@@ -19,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 
 def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None = None) -> FastAPI:
+    # Explicit opt-in at app creation; disabled routes are absent from OpenAPI as well.
+    trace_enabled = os.getenv('ENABLE_MATCH_TRACE', 'false').strip().casefold() == 'true'
+    preset_cache: tuple[Catalog, DemoPresetsResponse] | None = None
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         try:
@@ -60,17 +68,24 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
             'date': 'Укажите дату YYYY-MM-DD с 2026-09-23 по 2026-12-31.',
             'budget': 'Бюджет должен быть конечным числом больше 0 и не больше 100 000 000 ₸.',
             'duration': 'Длительность должна быть целым числом от 1 до 12 или null.',
+            'date_from': 'Начало диапазона: дата YYYY-MM-DD внутри календаря 2026-09-23–2026-12-31.',
+            'date_to': 'Конец диапазона: дата YYYY-MM-DD внутри календаря 2026-09-23–2026-12-31.',
+            'days_before': 'Число дней до даты должно быть целым от 0 до 30; всё окно — не более 31 дня.',
+            'days_after': 'Число дней после даты должно быть целым от 0 до 30; всё окно — не более 31 дня.',
         }
         fields = []
         for item in exc.errors():
             field = '.'.join(str(part) for part in item['loc'][1:]) or None
-            message = messages.get(field or '', 'Некорректная структура запроса.')
+            message = messages.get(str(item['loc'][-1]), 'Некорректная структура запроса.')
+            if _request.url.path == '/api/availability' and item['type'] == 'value_error':
+                message = item['msg']
             fields.append(FieldError(field=field, code=item['type'], message=message))
         return error(422, 'validation_error', 'Проверьте параметры поиска.', fields)
 
     @app.exception_handler(UnknownOption)
     async def unknown_option(_request: Request, exc: UnknownOption) -> JSONResponse:
-        return error(422, 'unknown_option', str(exc), [FieldError(field=exc.field, code='unknown_option', message=str(exc))])
+        field = f'query.{exc.field}' if _request.url.path == '/api/availability' else exc.field
+        return error(422, 'unknown_option', str(exc), [FieldError(field=field, code='unknown_option', message=str(exc))])
 
     @app.exception_handler(CatalogError)
     async def unavailable(_request: Request, _exc: CatalogError) -> JSONResponse:
@@ -104,6 +119,31 @@ def create_app(catalog: Catalog | None = None, semantic: SemanticProvider | None
     def match(query: SearchParams) -> MatchResponse:
         # Sync handler runs in FastAPI's thread pool, including the bounded AI call.
         return service().match(query)
+
+    @app.post('/api/match/details', response_model=DetailedMatchResponse, responses=errors)
+    def match_details(query: SearchParams) -> DetailedMatchResponse:
+        return service().details(query)
+
+    @app.post('/api/availability', response_model=AvailabilityResponse, responses=errors)
+    def availability(request: AvailabilityRequest) -> AvailabilityResponse:
+        return find_availability(service().catalog, request)
+
+    @app.get('/api/demo-presets', response_model=DemoPresetsResponse, responses=errors)
+    def demo_presets() -> DemoPresetsResponse:
+        nonlocal preset_cache
+        snapshot = service().catalog
+        cached = preset_cache
+        if cached is not None and cached[0] is snapshot:
+            return cached[1]
+        result = build_demo_presets(snapshot)
+        # Cache belongs to this immutable snapshot. A replacement/restart rebuilds it.
+        preset_cache = (snapshot, result)
+        return result
+
+    if trace_enabled:
+        @app.post('/api/debug/match', response_model=DebugMatchResponse, responses=errors)
+        def debug_match(query: SearchParams) -> DebugMatchResponse:
+            return service().debug_match(query)
 
     return app
 
