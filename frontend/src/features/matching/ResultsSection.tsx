@@ -65,7 +65,7 @@ export function ResultsSection({ response, query, pending, error, onRetry, onFoc
   if (!response) return <InitialResults />
 
   const count = response.results.length
-  const lexicalMode = response.model_info?.semantic_model === 'lexical-mock' || response.model_info?.semantic_model === 'tfidf-fallback'
+  const lexicalMode = response.model_info?.semantic_model === 'tfidf-v1'
   const matched = response.status === 'matched'
   const categoryMissing = response.status === 'category_not_found'
   const title = matched

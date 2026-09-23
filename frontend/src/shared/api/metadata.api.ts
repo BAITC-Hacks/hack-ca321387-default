@@ -3,7 +3,10 @@ import { FALLBACK_METADATA } from '../../features/search/search.constants'
 import type { Metadata } from '../types/match'
 
 export async function getMetadata(): Promise<Metadata> {
-  if (mockMode) return FALLBACK_METADATA
+  if (import.meta.env.DEV && mockMode) {
+    const { mockMetadata } = await import('../../mocks/engine')
+    return mockMetadata
+  }
   try {
     return await apiClient<Metadata>('/meta/options')
   } catch (error) {
